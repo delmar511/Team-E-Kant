@@ -1,0 +1,22 @@
+# 비밀정보 — 절대 커밋 금지 (평가표 10번)
+.env
+*.key
+
+# 가상환경
+.venv/
+venv/
+__pycache__/
+*.pyc
+
+# 생성물 — 재생성 가능하므로 커밋하지 않음
+data/
+*.faiss
+*.index
+*.pkl
+
+# 수집 원문 (법령 원문을 받을 경우)
+docs/corpus/raw/
+
+# OS
+.DS_Store
+Thumbs.db

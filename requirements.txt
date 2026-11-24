@@ -1,0 +1,16 @@
+# --- 문서·색인 담당 ---
+kiwipiepy          # 한국어 형태소 분석 (순수 파이썬 휠, JVM 불필요)
+rank-bm25          # BM25 구현
+python-frontmatter # 문서 상단 메타데이터 파싱
+python-dotenv      # .env 읽기
+
+# --- 벡터 검색 (담당자와 합의 후 확정) ---
+# openai
+# chromadb
+# faiss-cpu
+
+# --- 재정렬 (담당자와 합의 후 확정) ---
+# sentence-transformers
+
+# --- 공통 ---
+pydantic           # 청크 스키마 검증
