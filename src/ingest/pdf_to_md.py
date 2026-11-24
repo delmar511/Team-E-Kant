@@ -47,7 +47,9 @@ def squash(s):
     core = s.replace(' ', '')
     # 자간 벌림('유 학', '국   적')만 붙인다
     if len(core) <= 20 and len(re.findall(r'(?<![가-힣])[가-힣](?=\s)', s)) >= 3:
-        s = re.sub(r'(?<=[가-힣])\s+(?=[가-힣])', '', s)
+        # 한 칸짜리 자간만 붙인다. 두 칸 이상은 표의 칸 경계이므로 남긴다.
+        # ('약 호   약 호   대 상 자' -> '약호 약호 대상자')
+        s = re.sub(r'(?<=[가-힣]) (?=[가-힣])', '', s)
     return re.sub(r'\s{2,}', ' ', s).strip()
 
 
@@ -182,17 +184,33 @@ def convert(pages, title, code, version='2026-11-16'):
                     out.extend(render(right))
             continue
 
-        # 본문 줄을 '세로로 가장 가까운 업무명'에 배정한다.
-        # 업무명이 본문의 한가운데 놓이는 레이아웃이라, 업무명보다 위에 있는
-        # 첫 줄도 그 업무명의 것이다. 완성 시점에서 끊으면 꼬리가 다음
-        # 구간으로 넘어간다(A-1 '...받는 자와 그' / '가족').
-        mids = [(a + b) / 2 for _, a, b in labels]
+        # 본문 줄을 구간으로 배정한다.
+        # 한 업무의 영역 = 그 업무명이 시작하는 줄 ~ 다음 업무명이 시작하기 직전.
+        #
+        # '가장 가까운 업무명'(중앙 거리)으로 하면 본문이 업무명보다 훨씬 길 때
+        # 뒤쪽 업무명으로 끌려간다. D-2 35쪽의 '적용대상별 세부약호' 표(16~27행)가
+        # 「자격 해당자」(1~2행)가 아니라 「체류기간 상한」(28~30행)으로 넘어갔다.
+        #
+        # 업무명은 제 본문의 세로 한가운데에 놓이므로 첫 줄은 업무명보다
+        # 한두 줄 위에서 시작한다. 그래서 첫 업무명 위의 본문도 그 구간에 넣는다.
+        starts = [a for _, a, _ in labels]
+        carry = []                      # 앞 쪽에서 이어지는 본문
         bucket = [[] for _ in labels]
         for idx, (left, right) in enumerate(cols):
             if not right:
                 continue
-            best = min(range(len(mids)), key=lambda t: (abs(idx - mids[t]), t))
-            bucket[best].append(right)
+            if idx < starts[0]:
+                # 첫 업무명 바로 위(3줄 이내)면 그 구간의 첫 줄, 아니면 앞 구간의 꼬리
+                if starts[0] - idx <= 3 or last_lab is None:
+                    bucket[0].append(right)
+                else:
+                    carry.append(right)
+                continue
+            t = max(k for k in range(len(starts)) if starts[k] <= idx)
+            bucket[t].append(right)
+
+        for ln in carry:                # 앞 구간 제목 아래로 먼저 흘린다
+            out.extend(render(ln))
 
         for (lab, _, _), lines in zip(labels, bucket):
             if lab != last_lab:
