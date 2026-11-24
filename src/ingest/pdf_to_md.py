@@ -14,7 +14,8 @@ import sys
 
 NOISE = [
     re.compile(r'^\s*[~␾�]*\s*목차\s*$'),      # 페이지마다 반복되는 목차 링크
-    re.compile(r'^\s*-\s*\d{1,4}\s*-\s*$'),              # 페이지 번호
+    re.compile(r'^\s*-\s*\d{1,4}\s*-\s*$'),
+    re.compile(r'^\s*체류자격별\s*대상\s*및\s*제출서류\s*등\s*안내메뉴얼\s*$'),   # [수정7] 쪽마다 반복되는 머리글              # 페이지 번호
 ]
 
 LABELS = [
@@ -76,70 +77,130 @@ def split_left(raw):
     return squash(m.group(1)), m.group(2)
 
 
+def column_split(raw):
+    """한 줄을 (왼쪽 업무명 칸, 오른쪽 본문 칸) 으로 나눈다.
+
+    pdftotext -layout 은 2단 표의 가로 위치를 공백으로 보존한다.
+    그 성질을 그대로 쓴다. 어느 칸이 비어 있는지가 중요하다.
+    """
+    if not raw.strip():
+        return '', ''
+    indent = len(raw) - len(raw.lstrip())
+    if indent >= 12:                       # 오른쪽 칸만 있는 줄
+        return '', raw.strip()
+    m = re.match(r'^\s{0,11}(\S.{0,15}?)\s{2,}(\S.*)$', raw)
+    if m:                                  # 양쪽에 다 있는 줄
+        return squash(m.group(1)), m.group(2)
+    if len(raw.strip()) <= 20:             # 왼쪽 칸만 있는 짧은 줄 (업무명 조각)
+        return squash(raw), ''
+    return '', raw.strip()
+
+
+def find_labels(cols):
+    """왼쪽 칸 조각들을 모아 업무명과 그 줄 범위를 찾는다.
+
+    업무명은 제 본문의 세로 한가운데에 걸쳐 있고, 조각 사이에 본문 줄이
+    끼어든다(A-1: '자격 해당자'(4행) / 본문(5행) / '및 활동범위'(6행)).
+    그래서 '연속된 줄'이 아니라 '사이에 본문이 끼어도 이어지는' 누적이 필요하다.
+
+    돌려주는 값: [(업무명, 시작줄, 끝줄), ...]  그리고 업무명이 아니라고
+    판명돼 본문으로 되돌려야 할 줄 번호 집합.
+    """
+    labels, reclaim = [], set()
+    buf, start, used = [], None, []
+    for idx, (left, right) in enumerate(cols):
+        if not left:
+            continue
+        lab, partial = label_state(' '.join(buf + [left]))
+        if not lab and not partial:
+            lab2, partial2 = label_state(left)     # 단독 매칭 fallback
+            if lab2 or partial2:
+                reclaim.update(used)               # 앞서 모은 건 업무명이 아니었다
+                buf, start, used = [], None, []
+                lab, partial = lab2, partial2
+        if lab:
+            if start is None:
+                start = idx
+            labels.append((lab, start, idx))
+            buf, start, used = [], None, []
+        elif partial:
+            if start is None:
+                start = idx
+            buf.append(left)
+            used.append(idx)
+        else:
+            reclaim.update(used)
+            reclaim.add(idx)
+            buf, start, used = [], None, []
+    reclaim.update(used)
+    return labels, reclaim
+
+
 def convert(pages, title, code, version='2026-11-16'):
     out = ['---', f'doc_id: {code}', f'title: {title}',
            'source: 법무부 출입국·외국인정책본부 「체류민원 자격별 안내 매뉴얼」',
            f'version: {version}', '---', '', f'# {title}', '']
-    buf, hold, last_lab = [], [], None
+    last_lab = None
 
-    def flush(lab=None):
-        nonlocal hold, last_lab
-        if lab and lab != last_lab:
-            out.extend(['', f'## {lab}', ''])
-            last_lab = lab
-        out.extend(hold)
-        hold = []
+    def render(line):
+        """본문 한 줄을 Markdown 으로. 번호 항목은 소제목으로 올린다."""
+        line = norm_code(squash(line))
+        # 쪽마다 반복되는 머리글('유 학(D-2)'). 자간이 벌어져 있어 공백을 지우고 본다.
+        if not line or re.fullmatch(r'[가-힣]{2,8}\([A-Z]-\d+\)', re.sub(r'\s', '', line)):
+            return []
+        # 날짜('20. 3. 1.')를 번호 항목으로 오인하지 않는다
+        if re.match(r'^\d{1,2}\.\s', line) and len(re.sub(r'[^가-힣A-Za-z]', '', line[2:])) >= 2:
+            return ['', f'### {line}', '']
+        if re.match(r'^[가-힣]\.\s', line) and len(re.sub(r'[^가-힣A-Za-z]', '', line[2:])) >= 2:
+            return ['', f'#### {line}', '']
+        if re.match(r'^[□■]', line):
+            return ['- ' + line.lstrip('□■ ')]
+        return [line]
 
     for pno, page in pages:
         out.append(f'<!-- page: {pno} -->')
-        buf = []                                   # [수정2] 페이지 경계에서 버퍼 초기화
+
+        raws = []
         for raw in page.split('\n'):
             if not raw.strip() or any(p.match(raw) for p in NOISE):
                 continue
-            raw = re.sub(r'^\s*[~\u243e\ufffd]+\s*목차\s*', '', raw)   # [수정4] 본문 앞 목차 링크
-            if not raw.strip():
+            raw = re.sub(r'^\s*[~\u243e\ufffd]+\s*목차\s*', '', raw)
+            if raw.strip():
+                raws.append(raw)
+
+        cols = [column_split(r) for r in raws]
+        labels, reclaim = find_labels(cols)
+        # 업무명이 아니라고 판명된 왼쪽 조각은 본문으로 되돌린다
+        for k in reclaim:
+            left, right = cols[k]
+            cols[k] = ('', (left + ' ' + right).strip())
+
+        if not labels:
+            # 업무명이 없는 쪽은 직전 구간이 이어지는 것으로 본다
+            for left, right in cols:
+                if right:
+                    out.extend(render(right))
+            continue
+
+        # 본문 줄을 '세로로 가장 가까운 업무명'에 배정한다.
+        # 업무명이 본문의 한가운데 놓이는 레이아웃이라, 업무명보다 위에 있는
+        # 첫 줄도 그 업무명의 것이다. 완성 시점에서 끊으면 꼬리가 다음
+        # 구간으로 넘어간다(A-1 '...받는 자와 그' / '가족').
+        mids = [(a + b) / 2 for _, a, b in labels]
+        bucket = [[] for _ in labels]
+        for idx, (left, right) in enumerate(cols):
+            if not right:
                 continue
-            left, rest = split_left(raw)
-            if left is None:
-                cand = squash(raw)
-                lab, part = label_state(' '.join(buf + [cand]))
-                if lab:
-                    buf = []
-                    flush(lab)
-                    continue
-                if part and len(cand) <= 18:
-                    buf.append(cand)
-                    continue
-            if left:
-                lab, partial = label_state(' '.join(buf + [left]))
-                if not lab and not partial:
-                    lab, partial = label_state(left)   # [수정1] 단독 매칭 fallback
-                    if lab or partial:
-                        buf = []
-                if lab:
-                    buf = []
-                    flush(lab)
-                elif partial:
-                    buf.append(left)
-                    continue
-                else:
-                    rest = left + ' ' + rest
-                    buf = []
-            line = norm_code(squash(rest))
-            if not line or re.fullmatch(r'[가-힣]{2,8}\([A-Z]-\d+\)', line):
-                continue
-            # [수정3] 날짜·빈칸을 번호 항목으로 오인하지 않는다
-            if re.match(r'^\d{1,2}\.\s', line) and len(re.sub(r'[^가-힣A-Za-z]', '', line[2:])) >= 2:
-                hold.extend(['', f'### {line}', ''])
-            elif re.match(r'^[가-힣]\.\s', line) and len(re.sub(r'[^가-힣A-Za-z]', '', line[2:])) >= 2:
-                hold.extend(['', f'#### {line}', ''])
-            elif re.match(r'^[□■]', line):
-                hold.append('- ' + line.lstrip('□■ '))
-            else:
-                hold.append(line)
-            if len(hold) > 6:
-                flush()
-    flush()
+            best = min(range(len(mids)), key=lambda t: (abs(idx - mids[t]), t))
+            bucket[best].append(right)
+
+        for (lab, _, _), lines in zip(labels, bucket):
+            if lab != last_lab:
+                out.extend(['', f'## {lab}', ''])
+                last_lab = lab
+            for ln in lines:
+                out.extend(render(ln))
+
     return '\n'.join(out) + '\n'
 
 
