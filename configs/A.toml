@@ -1,0 +1,8 @@
+# Config A: vector search only.
+extends = "base.toml"
+name = "A"
+
+[retrieval]
+mode = "vector"
+top_k = 5
+vector_k = 5

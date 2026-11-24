@@ -1,0 +1,14 @@
+# Config B: BM25 + vector, fused with RRF. Raw scores are never added.
+extends = "base.toml"
+name = "B"
+
+[retrieval]
+mode = "hybrid"
+top_k = 5
+vector_k = 20
+bm25_k = 20
+
+[retrieval.fusion]
+method = "rrf"
+rrf_k = 60
+candidate_k = 20

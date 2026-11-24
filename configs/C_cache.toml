@@ -1,0 +1,9 @@
+# Optimization branch: config C + cache, evaluated separately (15 runs).
+extends = "C.toml"
+name = "C+cache"
+
+[optimization]
+kind = "cache"
+
+[optimization.cache]
+ttl_s = 86400
