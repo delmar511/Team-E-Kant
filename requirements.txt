@@ -1,8 +1,18 @@
+# Python 3.10 이상에서 검증.
+#
+# 외부 프로그램(pip 으로 설치되지 않음)
+#   poppler 의 pdftotext  : PDF -> 텍스트 변환에 필요.
+#                           원문 매뉴얼을 다시 변환할 때만 쓴다.
+#                           docs/corpus/*.md 를 그대로 쓰면 설치하지 않아도 된다.
+#     Windows : https://github.com/oschwartz10612/poppler-windows 에서 받아 PATH 에 추가
+#     macOS   : brew install poppler
+#     Ubuntu  : sudo apt install poppler-utils
+
 # --- 문서·색인 담당 ---
-kiwipiepy          # 한국어 형태소 분석 (순수 파이썬 휠, JVM 불필요)
-rank-bm25          # BM25 구현
-python-frontmatter # 문서 상단 메타데이터 파싱
-python-dotenv      # .env 읽기
+kiwipiepy==0.25.1          # 한국어 형태소 분석 (순수 파이썬 휠, JVM 불필요)
+rank-bm25==0.2.2           # BM25 구현
+python-frontmatter==1.1.0  # 문서 상단 메타데이터 파싱
+python-dotenv==1.0.1       # .env 읽기
 
 # --- 벡터 검색 (담당자와 합의 후 확정) ---
 # openai
@@ -13,4 +23,4 @@ python-dotenv      # .env 읽기
 # sentence-transformers
 
 # --- 공통 ---
-pydantic           # 청크 스키마 검증
+pydantic==2.9.2            # 청크 스키마 검증
