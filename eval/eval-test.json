@@ -1,0 +1,329 @@
+[
+  {
+    "id": "TEST-001",
+    "split": "test",
+    "type": "direct",
+    "visa": [
+      "D-4"
+    ],
+    "question": "D-4 어학연수생의 체류기간 연장허가 신청 시 제출서류는 무엇인가?",
+    "expected_facts": [],
+    "evidence": [],
+    "no_answer_reason": null,
+    "verified_by": "",
+    "verified_at": "",
+    "reviewed_by": "",
+    "reviewed_at": ""
+  },
+  {
+    "id": "TEST-002",
+    "split": "test",
+    "type": "direct",
+    "visa": [
+      "D-2"
+    ],
+    "question": "D-2 유학생이 시간제취업 허가를 받기 위한 요건(어학능력, 성적 등)은?",
+    "expected_facts": [],
+    "evidence": [],
+    "no_answer_reason": null,
+    "verified_by": "",
+    "verified_at": "",
+    "reviewed_by": "",
+    "reviewed_at": ""
+  },
+  {
+    "id": "TEST-003",
+    "split": "test",
+    "type": "direct",
+    "visa": [
+      "D-2",
+      "D-10"
+    ],
+    "question": "D-2 유학생이 졸업 후 구직활동을 하려면 어떤 체류자격으로 변경해야 하며, 요건은?",
+    "expected_facts": [],
+    "evidence": [],
+    "no_answer_reason": null,
+    "verified_by": "",
+    "verified_at": "",
+    "reviewed_by": "",
+    "reviewed_at": ""
+  },
+  {
+    "id": "TEST-004",
+    "split": "test",
+    "type": "direct",
+    "visa": [
+      "D-2"
+    ],
+    "question": "D-2 유학생이 다른 학교로 옮길 때 출입국에 해야 하는 절차는?",
+    "expected_facts": [],
+    "evidence": [],
+    "no_answer_reason": null,
+    "verified_by": "",
+    "verified_at": "",
+    "reviewed_by": "",
+    "reviewed_at": ""
+  },
+  {
+    "id": "TEST-005",
+    "split": "test",
+    "type": "direct",
+    "visa": [
+      "D-4"
+    ],
+    "question": "D-4 어학연수생이 연수기관을 변경할 때 필요한 절차는?",
+    "expected_facts": [],
+    "evidence": [],
+    "no_answer_reason": null,
+    "verified_by": "",
+    "verified_at": "",
+    "reviewed_by": "",
+    "reviewed_at": ""
+  },
+  {
+    "id": "TEST-006",
+    "split": "test",
+    "type": "direct",
+    "visa": [
+      "D-2-2"
+    ],
+    "question": "졸업요건을 못 채운 D-2 학사과정 유학생은 입학 후 최대 몇 년까지 체류기간 연장이 가능한가?",
+    "expected_facts": [],
+    "evidence": [],
+    "no_answer_reason": null,
+    "verified_by": "",
+    "verified_at": "",
+    "reviewed_by": "",
+    "reviewed_at": ""
+  },
+  {
+    "id": "TEST-007",
+    "split": "test",
+    "type": "direct",
+    "visa": [
+      "D-2-5"
+    ],
+    "question": "D-2-5(연구유학) 자격의 대상은 누구인가?",
+    "expected_facts": [],
+    "evidence": [],
+    "no_answer_reason": null,
+    "verified_by": "",
+    "verified_at": "",
+    "reviewed_by": "",
+    "reviewed_at": ""
+  },
+  {
+    "id": "TEST-008",
+    "split": "test",
+    "type": "direct",
+    "visa": [
+      "D-2"
+    ],
+    "question": "D-2 유학생이 시간제취업을 할 수 없는 업종은?",
+    "expected_facts": [],
+    "evidence": [],
+    "no_answer_reason": null,
+    "verified_by": "",
+    "verified_at": "",
+    "reviewed_by": "",
+    "reviewed_at": ""
+  },
+  {
+    "id": "TEST-009",
+    "split": "test",
+    "type": "direct",
+    "visa": [
+      "D-2"
+    ],
+    "question": "D-2 유학생이 일반 기업의 연구원으로 체류자격외 활동허가를 받는 절차는?",
+    "expected_facts": [],
+    "evidence": [],
+    "no_answer_reason": null,
+    "verified_by": "",
+    "verified_at": "",
+    "reviewed_by": "",
+    "reviewed_at": ""
+  },
+  {
+    "id": "TEST-010",
+    "split": "test",
+    "type": "direct",
+    "visa": [
+      "D-4"
+    ],
+    "question": "D-4 어학연수생이 시간제취업 허가 없이 주말에만 일할 수 있는 조건은?",
+    "expected_facts": [],
+    "evidence": [],
+    "no_answer_reason": null,
+    "verified_by": "",
+    "verified_at": "",
+    "reviewed_by": "",
+    "reviewed_at": ""
+  },
+  {
+    "id": "TEST-011",
+    "split": "test",
+    "type": "paraphrase",
+    "visa": [
+      "D-2"
+    ],
+    "question": "대학원생인데 연구실 조교로 돈 받으면 따로 허가 받아야 돼?",
+    "expected_facts": [],
+    "evidence": [],
+    "no_answer_reason": null,
+    "verified_by": "",
+    "verified_at": "",
+    "reviewed_by": "",
+    "reviewed_at": ""
+  },
+  {
+    "id": "TEST-012",
+    "split": "test",
+    "type": "paraphrase",
+    "visa": [
+      "D-2"
+    ],
+    "question": "유학생인데 본국에 1년 넘게 다녀와야 하면 출입국에 뭘 해야 돼?",
+    "expected_facts": [],
+    "evidence": [],
+    "no_answer_reason": null,
+    "verified_by": "",
+    "verified_at": "",
+    "reviewed_by": "",
+    "reviewed_at": ""
+  },
+  {
+    "id": "TEST-013",
+    "split": "test",
+    "type": "paraphrase",
+    "visa": [
+      "D-2"
+    ],
+    "question": "유학생인데 알바하는 가게가 바뀌면 출입국에 다시 신고해야 돼?",
+    "expected_facts": [],
+    "evidence": [],
+    "no_answer_reason": null,
+    "verified_by": "",
+    "verified_at": "",
+    "reviewed_by": "",
+    "reviewed_at": ""
+  },
+  {
+    "id": "TEST-014",
+    "split": "test",
+    "type": "confusable",
+    "visa": [
+      "D-2",
+      "D-4"
+    ],
+    "question": "D-2와 D-4의 체류기간 연장 시 재정능력 입증 서류는 어떻게 다른가?",
+    "expected_facts": [],
+    "evidence": [],
+    "no_answer_reason": null,
+    "verified_by": "",
+    "verified_at": "",
+    "reviewed_by": "",
+    "reviewed_at": ""
+  },
+  {
+    "id": "TEST-015",
+    "split": "test",
+    "type": "confusable",
+    "visa": [
+      "D-2-5",
+      "D-2-2",
+      "D-2-3",
+      "D-2-4"
+    ],
+    "question": "연구유학(D-2-5)과 학위과정(D-2-2~D-2-4) 유학생은 1회 부여 체류기간과 총 체류 한도가 어떻게 다른가?",
+    "expected_facts": [],
+    "evidence": [],
+    "no_answer_reason": null,
+    "verified_by": "",
+    "verified_at": "",
+    "reviewed_by": "",
+    "reviewed_at": ""
+  },
+  {
+    "id": "TEST-016",
+    "split": "test",
+    "type": "confusable",
+    "visa": [
+      "D-2-2",
+      "D-2-8"
+    ],
+    "question": "학사과정(D-2-2)과 방문학생(D-2-8)은 시간제취업을 시작할 수 있는 시점이 어떻게 다른가?",
+    "expected_facts": [],
+    "evidence": [],
+    "no_answer_reason": null,
+    "verified_by": "",
+    "verified_at": "",
+    "reviewed_by": "",
+    "reviewed_at": ""
+  },
+  {
+    "id": "TEST-017",
+    "split": "test",
+    "type": "confusable",
+    "visa": [
+      "D-2",
+      "D-4"
+    ],
+    "question": "D-2 유학생과 D-4 어학연수생의 시간제취업 허가 기간과 근무 장소 수는 어떻게 다른가?",
+    "expected_facts": [],
+    "evidence": [],
+    "no_answer_reason": null,
+    "verified_by": "",
+    "verified_at": "",
+    "reviewed_by": "",
+    "reviewed_at": ""
+  },
+  {
+    "id": "TEST-018",
+    "split": "test",
+    "type": "no_answer",
+    "visa": [
+      "D-2"
+    ],
+    "question": "D-2 유학생의 건강보험료는 얼마인가?",
+    "expected_facts": [],
+    "evidence": [],
+    "no_answer_reason": "(초안) 매뉴얼에 D-2 건강보험료 관련 내용 없음. 다른 자격의 건강보험 가입증명 언급만 있음",
+    "verified_by": "",
+    "verified_at": "",
+    "reviewed_by": "",
+    "reviewed_at": ""
+  },
+  {
+    "id": "TEST-019",
+    "split": "test",
+    "type": "no_answer",
+    "visa": [
+      "D-4"
+    ],
+    "question": "다른 관서에서는 출석률 미달 어학연수생의 연장을 어떻게 처리했나?",
+    "expected_facts": [],
+    "evidence": [],
+    "no_answer_reason": "(초안) 관서별 처리 사례는 매뉴얼 범위 밖",
+    "verified_by": "",
+    "verified_at": "",
+    "reviewed_by": "",
+    "reviewed_at": ""
+  },
+  {
+    "id": "TEST-020",
+    "split": "test",
+    "type": "no_answer",
+    "visa": [
+      "D-2"
+    ],
+    "question": "D-2 체류기간 연장허가 수수료를 신용카드로 낼 수 있나?",
+    "expected_facts": [],
+    "evidence": [],
+    "no_answer_reason": "(초안) 수수료 금액은 있으나 납부 방법은 매뉴얼에 없음. 원문 확인 필요",
+    "verified_by": "",
+    "verified_at": "",
+    "reviewed_by": "",
+    "reviewed_at": ""
+  }
+]

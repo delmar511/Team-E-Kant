@@ -1,0 +1,36 @@
+# Shared by every config. A, B and C must differ only in [retrieval]
+# (checked by config.check_shared_settings). Paths are relative to the repo root.
+# Values marked TBD are placeholders to set before the first index build.
+
+[docs]
+doc_version = "MAN-STAY-YYMMDD"          # manual edition, set when collected
+source_path = "data/raw/manual.pdf"      # raw file; its hash is added to doc_version
+documents_csv = "docs/documents.csv"     # chapter-level doc_ids
+
+[index]
+chunk_size = 800                         # TBD
+chunk_overlap = 100                      # TBD
+chunk_unit = "chars"
+embedding_model = "TBD"
+bm25_tokenizer = "TBD"              # e.g. kiwi, mecab, whitespace
+index_dir = "index"
+
+[generation]                             # identical for A/B/C
+model = "TBD"
+temperature = 0.0
+max_output_tokens = 1024
+timeout_s = 30
+max_retries = 1
+
+[prompt]                                 # identical for A/B/C
+label = "v1"
+template_path = "src/answer/templates/answer_v1.txt"
+max_context_chunks = 5
+max_context_chars = 8000
+
+[evidence_gate]                          # tuned on dev.json only
+method = "model_judgment"
+params = {}
+
+[eval]
+version = "eval-v0.1"                    # set to the frozen tag before final runs

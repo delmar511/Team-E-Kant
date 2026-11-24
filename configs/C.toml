@@ -1,0 +1,10 @@
+# Config C: config B's fused candidates, rescored by a reranker.
+extends = "B.toml"
+name = "C"
+
+[retrieval]
+mode = "hybrid_rerank"
+
+[retrieval.reranker]
+model = "TBD"
+input_k = 20

@@ -1,0 +1,12 @@
+# Optimization branch: config C + query rewrite, evaluated separately (20 runs).
+# The rewriter never sees gold answers or evidence, and falls back to the
+# original query on error.
+extends = "C.toml"
+name = "C+rewrite"
+
+[optimization]
+kind = "rewrite"
+
+[optimization.rewrite]
+model = "TBD"
+timeout_s = 10
