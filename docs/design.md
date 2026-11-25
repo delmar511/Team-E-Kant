@@ -9,9 +9,9 @@
 | 항목 | 값 | 확정일 |
 |---|---|---|
 | 문서 세트 버전 | `[기입]` | |
-| 색인 버전 | idx-v1 | |
-| 임베딩 모델 | `[기입]` | |
-| Reranker 모델 | `[기입]` | |
+| 색인 버전 | idx-v2 (DOC-INTRO 추가, 1,653 청크) | |
+| 임베딩 모델 | `nlpai-lab/KURE-v1` (1024차원, 로컬) | 2026-11-25 |
+| Reranker 모델 | `BAAI/bge-reranker-v2-m3` (cross-encoder, 로컬) | 2026-11-25 |
 | 평가셋 버전 | dev v1.0 / test v1.0 | |
 
 ## 2. 청킹 (평가표 3번)
@@ -102,9 +102,17 @@ score(d) = 1/(60 + rank_bm25(d)) + 1/(60 + rank_vector(d))
 | 항목 | 값 |
 |---|---|
 | 방식 | Cross-encoder (질문+청크를 한 쌍으로 입력) |
-| 모델 | `[기입 — 한국어 지원 확인 필수]` |
+| 모델 | `BAAI/bge-reranker-v2-m3` — 다국어(한국어 포함), KURE-v1 과 같은 bge-m3 계열 |
 | 입력 후보 수 | 20 |
-| 출력 k | 5 |
+| 출력 k | 5 — 프롬프트에 들어가는 상위 청크 수 (`[prompt] max_context_chunks`, A/B/C 공통) |
+| 입력 텍스트 | 질문 + (절 경로 + 청크 본문), 최대 1024 토큰 (`max_length`) |
+| 동점 처리 | 재정렬 전(RRF) 순위가 앞선 쪽 우선 |
+| 기록 | 입력 20개 전부를 `rank_before_rerank` / `rank_after_rerank` 와 함께 반환·기록. 점수는 `component_scores` 에 `rerank`·`rrf`·`bm25`·`vector` 따로 |
+| 시간 | `latency.rerank_ms` (검색 시간 `retrieval_ms` 와 분리) |
+| 코드 | `src/rerank.py`, `src/search_adapter.py` (`hybrid_rerank`), `configs/C.toml` |
+
+C 는 20개를 모두 돌려주고 프롬프트는 상위 5개만 쓴다. 그래야 기록만으로 "근거가 후보 20개에 아예 없었나(검색 누락)"와
+"후보에는 있었는데 재정렬 후 5위 밖으로 밀렸나(순위 실패)"를 구분할 수 있다 (problem.md 11.4).
 
 **RRF 점수로 다시 정렬하는 것은 재정렬이 아니다.** 관련도를 처음부터 다시 계산해야 한다.
 

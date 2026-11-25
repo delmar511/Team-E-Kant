@@ -59,6 +59,10 @@ with JsonlWriter(rec_path) as rec_out, JsonlWriter(trace_path) as trace_out:
         # effort 는 config 에 칸이 없어 생성 모델 이름에 붙여 기록한다 (예: claude-opus-5-5@medium). 캐시 키에도 반영됨
         versions = build_versions(cfg).model_copy(update={"generation_model": llm_fn.model_id})
         retriever = make_retriever(cfg, stub=a.stub)
+        # 설정이 TBD 면 실제 색인을 만든 임베딩 모델을 기록한다 (기록만 보고 어느 모델 결과인지 알 수 있게)
+        actual = getattr(retriever, "model", None)
+        if actual and versions.embedding_model in ("", "TBD"):
+            versions = versions.model_copy(update={"embedding_model": actual})
         rewrite_fn = (make_rewrite_llm(cfg) if a.llm == "claude" and cfg.optimization.kind is OptimizationKind.REWRITE
                       else None)
         cache = (AnswerCache(cfg.optimization.cache.ttl_s) if cfg.optimization.kind is OptimizationKind.CACHE

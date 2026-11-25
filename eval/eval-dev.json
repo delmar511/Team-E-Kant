@@ -512,12 +512,21 @@
     "optional_facts": [
       "질문의 학생 체류자격이 특정되지 않아 D-2로 가정함. D-4 어학연수생이라면 연장 시에도 출석확인서 등 학업 정상 수행 입증서류 제출(p.91)"
     ],
-    "evidence": [
+    "evidence": [],
+    "no_answer_reason": "(초안) 개별 허가 판정 요청. 매뉴얼은 요건만 안내하며 판정은 시스템 범위 밖",
+    "verified_by": "",
+    "verified_at": "",
+    "reviewed_by": "",
+    "reviewed_at": "",
+    "reference_evidence": [
       {
         "page": 3,
         "section": "유의사항",
         "quote": "허가 여부는 심사에 의해 결정될 수 있습니다",
-        "chunk_id": null
+        "chunk_id": "DOC-INTRO#5f777614b7",
+        "chunk_ids_all": [
+          "DOC-INTRO#5f777614b7"
+        ]
       },
       {
         "page": 44,
@@ -539,12 +548,7 @@
           "DOC-D2#94bd3000d6"
         ]
       }
-    ],
-    "no_answer_reason": "(초안) 개별 허가 판정 요청. 매뉴얼은 요건만 안내하며 판정은 시스템 범위 밖",
-    "verified_by": "",
-    "verified_at": "",
-    "reviewed_by": "",
-    "reviewed_at": ""
+    ]
   },
   {
     "id": "DEV-010",
@@ -560,7 +564,13 @@
       "참고: 일반 기준 개정 정보는 없으나, 매뉴얼상 광역형 비자 시범사업(유학생 시간제취업 허용시간 확대 포함) 운영기간은 '25.6.13.~'26.12.31.로 종료 예정이며 지자체별 변동 가능"
     ],
     "optional_facts": [],
-    "evidence": [
+    "evidence": [],
+    "no_answer_reason": "(초안) 매뉴얼에 없는 향후 개정 정보. 전체 795쪽에서 2027·’27 언급을 검색한 결과 D-2 시간제취업 기준 개정 정보 없음(해당 언급은 E-7 시범사업, F-2-R, F-3 배우자 특례, 서식 날짜뿐)",
+    "verified_by": "",
+    "verified_at": "",
+    "reviewed_by": "",
+    "reviewed_at": "",
+    "reference_evidence": [
       {
         "page": 37,
         "section": "유학(D-2) > 시간제취업 활동 허가 > 다. 허용범위 표",
@@ -573,11 +583,6 @@
         "quote": "’25. 6. 13. ~ ’26. 12. 31. (약 2년간) / ※ 단, 지자체 평가, 불법체류자 다수 발생 등 사정 변경 시 지자체 별로 운영기간이 변동될 수 있음",
         "chunk_id": "DOC-WIDE#b25425f37e"
       }
-    ],
-    "no_answer_reason": "(초안) 매뉴얼에 없는 향후 개정 정보. 전체 795쪽에서 2027·’27 언급을 검색한 결과 D-2 시간제취업 기준 개정 정보 없음(해당 언급은 E-7 시범사업, F-2-R, F-3 배우자 특례, 서식 날짜뿐)",
-    "verified_by": "",
-    "verified_at": "",
-    "reviewed_by": "",
-    "reviewed_at": ""
+    ]
   }
 ]

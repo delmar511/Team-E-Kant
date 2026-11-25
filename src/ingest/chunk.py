@@ -115,6 +115,8 @@ def parse(md_path):
 
 
 if __name__ == '__main__':
+    # Windows 콘솔 기본 인코딩(cp1252/cp949)으로는 한글 출력이 깨지거나 실패한다. 줄바꿈도 LF 로 고정
+    sys.stdout.reconfigure(encoding='utf-8', newline='\n')
     rows = []
     for pattern in sys.argv[1:]:
         for f in sorted(glob.glob(pattern)):
