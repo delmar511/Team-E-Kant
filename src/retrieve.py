@@ -59,23 +59,42 @@ def load_vectors(index_dir='data/index'):
     return vecs, meta
 
 
+_LOCAL_CACHE = {}
+
+
+def embed_query(query, model):
+    """질의를 임베딩한다. 색인할 때와 반드시 같은 모델이어야 한다.
+
+    허깅페이스 모델('org/name')은 내 컴퓨터에서, 그 외는 OpenAI API 로 돌린다.
+    로컬 모델은 적재가 느려서 한 번 띄우면 캐시해 둔다.
+    """
+    if '/' in model:                       # 로컬(sentence-transformers)
+        if model not in _LOCAL_CACHE:
+            from sentence_transformers import SentenceTransformer
+            _LOCAL_CACHE[model] = SentenceTransformer(model)
+        v = _LOCAL_CACHE[model].encode([query], normalize_embeddings=True,
+                                       convert_to_numpy=True)[0]
+        return np.asarray(v, dtype=np.float32)
+    from openai import OpenAI
+    v = OpenAI().embeddings.create(model=model, input=[query]).data[0].embedding
+    v = np.asarray(v, dtype=np.float32)
+    return v / np.linalg.norm(v)
+
+
 def search_vector(vecs, chunk_ids, query, model, n=CANDIDATES):
     """질의 -> [(chunk_id, 코사인유사도)] 상위 n 개.
 
     색인할 때 정규화해 뒀으므로 내적이 곧 코사인 유사도다.
     1,646개면 전수 비교가 순식간이라 ANN 인덱스가 필요 없다.
     """
-    from openai import OpenAI
-    q = OpenAI().embeddings.create(model=model, input=[query]).data[0].embedding
-    q = np.asarray(q, dtype=np.float32)
-    q /= np.linalg.norm(q)
+    q = embed_query(query, model)
     sims = vecs @ q
     idx = np.argsort(-sims)[:n]
     return [(chunk_ids[i], float(sims[i])) for i in idx]
 
 
 # ============================================================ 본인 작성 구간
-def rrf(*ranked_lists, k=RRF_K, n=TOP_K):
+def rrf(*ranked_lists, weights=None, k=RRF_K, n=TOP_K):
     """여러 검색기의 순위를 RRF 로 합친다. -> [(chunk_id, rrf점수)] 상위 n 개
 
     평가표 4번이 '직접 구현' 을 요구하는 지점이다.
@@ -106,12 +125,23 @@ def rrf(*ranked_lists, k=RRF_K, n=TOP_K):
     인자
     ----
     ranked_lists : 각각 [(chunk_id, 점수)] 형태. 점수는 여기서 쓰지 않는다. 순서만 쓴다.
+    weights      : 검색기별 가중치. 없으면 전부 1.0 (= 원래 RRF)
+
+    왜 가중치가 필요한가
+    ------------------
+    동등 가중치 RRF 는 두 검색기의 품질이 비슷할 때를 가정한다.
+    한쪽이 뚜렷이 약하면 그 검색기의 1·2위가 강한 검색기의 1위와 거의 동점이 되어
+    앞자리를 거저 가져간다. 실제로 KURE 벡터(MRR 0.792)에 BM25(0.453)를
+    동등 가중치로 합치자 MRR 이 0.557 로 떨어졌다.
     """
+    # 가중치: 검색기마다 신뢰도가 다르면 기여도를 다르게 준다.
+    # 다 1.0 이면 원래의 RRF 와 같다.
+    w = weights or [1.0] * len(ranked_lists)
     scores = {}
-    for lst in ranked_lists:
-        for rank, (cid, _) in enumerate(lst,1):
-            scores[cid] = scores.get(cid,0) + 1 / (k + rank)
-    return sorted(scores.items(), key= lambda x: x[1], reverse=True)[:n]
+    for lst, wi in zip(ranked_lists, w):
+        for rank, (cid, _) in enumerate(lst, 1):
+            scores[cid] = scores.get(cid, 0) + wi / (k + rank)
+    return sorted(scores.items(), key=lambda x: x[1], reverse=True)[:n]
 # =========================================================== /본인 작성 구간
 
 
@@ -173,6 +203,7 @@ def evaluate(path, run, chunks, label):
     rows = json.loads(Path(path).read_text(encoding='utf-8'))
     scored = [r for r in rows if r['type'] != 'no_answer']
     hit = n = 0
+    rr = []
     skipped = []
     for r in scored:
         gold = {e['chunk_id'] for e in r['evidence'] if e.get('chunk_id')}
@@ -181,15 +212,20 @@ def evaluate(path, run, chunks, label):
             skipped.append(r['id'])
             continue
         n += 1
-        got = {cid for cid, _ in run(r['question'])[:TOP_K]}
-        ok = bool(gold & got)
+        ordered = [cid for cid, _ in run(r['question'])]
+        # 정답 청크가 몇 위였나. Hit@5 는 1위와 5위를 똑같이 O 로 처리하므로
+        # 순위를 같이 봐야 구성 간 차이가 보인다.
+        pos = next((i for i, c in enumerate(ordered, 1) if c in gold), None)
+        ok = bool(pos and pos <= TOP_K)
         hit += ok
-        print(f'  {"O" if ok else "X"}  {r["id"]}  {r["question"][:46]}')
+        rr.append(1.0 / pos if pos else 0.0)
+        print(f'  {"O" if ok else "X"}  {r["id"]}  {str(pos) if pos else "-":>3}위  {r["question"][:40]}')
     if skipped:
         print(f'\n채점 제외 {len(skipped)}건 (chunk_id 없음): {", ".join(skipped)}')
         print('  -> python src/link_evidence.py <평가셋> --write 를 먼저 돌릴 것')
     if n:
-        print(f'\nHit@{TOP_K} = {hit}/{n}  ({label}, no_answer 제외)')
+        mrr = sum(rr) / len(rr)
+        print(f'\nHit@{TOP_K} = {hit}/{n}   MRR = {mrr:.3f}   ({label}, no_answer 제외)')
     else:
         print('\n채점 가능한 문항이 없다.')
 
@@ -199,6 +235,8 @@ def main():
     ap.add_argument('query', nargs='?')
     ap.add_argument('--eval')
     ap.add_argument('--index', default='data/index')
+    ap.add_argument('--w-bm25', type=float, default=1.0, dest='w_bm25',
+                    help='구성 B 에서 BM25 의 가중치. 1.0 이 원래 RRF')
     ap.add_argument('--config', default='bm25', choices=['bm25', 'A', 'B'],
                     help='bm25=BM25 단독(기준선), A=벡터 단독, B=BM25+벡터 RRF')
     a = ap.parse_args()
@@ -225,10 +263,11 @@ def main():
         run = lambda q: search_vector(vecs, chunk_ids, q, model)
         label = f'구성 A 벡터 단독 ({model})'
     else:
+        wb = a.w_bm25
         run = lambda q: rrf(search_bm25(bm25, chunk_ids, q),
                             search_vector(vecs, chunk_ids, q, model),
-                            n=CANDIDATES)
-        label = f'구성 B BM25+벡터 RRF (k={RRF_K})'
+                            weights=[wb, 1.0], n=CANDIDATES)
+        label = f'구성 B BM25+벡터 RRF (k={RRF_K}, w_bm25={wb})'
 
     if a.eval:
         evaluate(a.eval, run, chunks, label)

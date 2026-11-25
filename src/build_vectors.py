@@ -23,7 +23,6 @@ import time
 from pathlib import Path
 
 import numpy as np
-from openai import OpenAI
 from openai import APIStatusError
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
@@ -67,6 +66,25 @@ def embed_text(c):
     긴 맥락을 넣어도 토큰 수로 점수가 깎이지 않는다.
     """
     return f"{c['location']}\n\n{c['text']}"
+
+
+def is_local(model):
+    """허깅페이스 모델 이름은 'org/name' 꼴이다. OpenAI 모델명엔 / 가 없다."""
+    return '/' in model
+
+
+def embed_local(chunks, model):
+    """sentence-transformers 로 내 컴퓨터에서 임베딩한다.
+
+    KURE-v1 은 bge-m3 를 한국어로 추가 학습한 모델이다(1024차원).
+    처음 돌리면 모델을 내려받으므로 시간이 걸린다.
+    """
+    from sentence_transformers import SentenceTransformer
+    m = SentenceTransformer(model)
+    texts = [embed_text(c) for c in chunks]
+    a = m.encode(texts, batch_size=16, show_progress_bar=True,
+                 normalize_embeddings=True, convert_to_numpy=True)
+    return a.astype(np.float32)
 
 
 def embed_all(client, chunks, model):
@@ -114,14 +132,17 @@ def main():
     model = a.model or os.environ.get('EMBEDDING_MODEL')
     if not model:
         sys.exit('EMBEDDING_MODEL 이 없다. .env 에 적거나 --model 로 넘길 것')
-    if not os.environ.get('OPENAI_API_KEY'):
+    if not is_local(model) and not os.environ.get('OPENAI_API_KEY'):
         sys.exit('OPENAI_API_KEY 가 없다. .env 를 확인할 것')
 
     chunks = load_chunks(a.chunks)
     print(f'청크 {len(chunks)}개를 {model} 로 임베딩한다.')
-    client = OpenAI()
     t0 = time.time()
-    vecs = embed_all(client, chunks, model)
+    if is_local(model):
+        vecs = embed_local(chunks, model)
+    else:
+        from openai import OpenAI
+        vecs = embed_all(OpenAI(), chunks, model)
 
     out = Path(a.out)
     out.mkdir(parents=True, exist_ok=True)
