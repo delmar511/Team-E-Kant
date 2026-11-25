@@ -16,11 +16,11 @@ bm25_tokenizer = "TBD"              # e.g. kiwi, mecab, whitespace
 index_dir = "index"
 
 [generation]                             # identical for A/B/C
-model = "TBD"
-temperature = 0.0
-max_output_tokens = 1024
-timeout_s = 30
-max_retries = 1
+model = "claude-opus-5-5"
+temperature = 0.0                        # NOT sent: Claude Opus 5.5 rejects temperature (400). Depth = effort (LLM_EFFORT in .env, default medium)
+max_output_tokens = 16000                # includes thinking tokens; 1024 truncates answers (max_tokens stop -> model_error)
+timeout_s = 60
+max_retries = 1                          # API retries (ChatAnthropic). Format errors are re-asked once separately
 
 [prompt]                                 # identical for A/B/C
 label = "v1"

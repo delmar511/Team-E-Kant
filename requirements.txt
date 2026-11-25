@@ -22,5 +22,12 @@ python-dotenv==1.0.1       # .env 읽기
 # --- 재정렬 (담당자와 합의 후 확정) ---
 # sentence-transformers
 
+# --- 생성·에이전트 (김선규) ---
+anthropic>=2.12.0          # Claude API (키: .env 의 ANTHROPIC_API_KEY)
+langchain-anthropic>=1.7.12
+langchain-core>=1.8.4      # PromptTemplate, ChatAnthropic
+numpy                      # retrieve.py 벡터 검색
+
 # --- 공통 ---
 pydantic==2.9.2            # 청크 스키마 검증
+pytest                     # tests/

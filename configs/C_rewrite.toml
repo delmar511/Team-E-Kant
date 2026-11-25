@@ -8,5 +8,5 @@ name = "C+rewrite"
 kind = "rewrite"
 
 [optimization.rewrite]
-model = "TBD"
+model = "claude-opus-5-5"                # called with effort "low" (src/answer/generator.py make_rewrite_llm)
 timeout_s = 10
