@@ -17,6 +17,7 @@ BM25 색인과 파일을 나눈 이유
 import argparse
 import json
 import os
+import re
 import sys
 import time
 from pathlib import Path
@@ -42,6 +43,11 @@ def load_env(path='.env'):
             continue
         k, v = line.split('=', 1)
         os.environ.setdefault(k.strip(), v.strip())
+
+
+def slug(model):
+    """모델명을 파일명으로 쓸 수 있게 바꾼다."""
+    return re.sub(r'[^A-Za-z0-9._-]+', '-', model)
 
 
 def load_chunks(path):
@@ -119,8 +125,16 @@ def main():
 
     out = Path(a.out)
     out.mkdir(parents=True, exist_ok=True)
-    np.save(out / 'vectors.npy', vecs)
-    (out / 'vectors_meta.json').write_text(json.dumps({
+    tag = slug(model)
+    np.save(out / f'vectors_{tag}.npy', vecs)
+    # 기본 모델은 vectors.npy 로도 둬서 기존 명령이 그대로 돌게 한다
+    if model == os.environ.get('EMBEDDING_MODEL'):
+        np.save(out / 'vectors.npy', vecs)
+        (out / 'vectors_meta.json').write_text(json.dumps({
+            'embedding_model': model, 'n_chunks': len(chunks),
+            'dim': int(vecs.shape[1]), 'normalized': True,
+        }, ensure_ascii=False, indent=2), encoding='utf-8')
+    (out / f'vectors_{tag}.meta.json').write_text(json.dumps({
         'embedding_model': model,
         'n_chunks': len(chunks),
         'dim': int(vecs.shape[1]),
