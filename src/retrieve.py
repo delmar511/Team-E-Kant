@@ -22,9 +22,12 @@ RRF 공식
 """
 import argparse
 import json
+import os
 import pickle
 import sys
 from pathlib import Path
+
+import numpy as np
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from tokenizer import tokenize                      # noqa: E402
@@ -34,7 +37,86 @@ CANDIDATES = 20             # 각 검색기가 내놓는 후보 수
 TOP_K = 5                   # 최종 반환 수. Hit@5 와 맞춘다
 
 
+def load_env(path='.env'):
+    p = Path(path)
+    if not p.exists():
+        return
+    for line in p.read_text(encoding='utf-8').splitlines():
+        line = line.strip()
+        if line and not line.startswith('#') and '=' in line:
+            k, v = line.split('=', 1)
+            os.environ.setdefault(k.strip(), v.strip())
+
+
+def load_vectors(index_dir='data/index'):
+    """벡터 색인을 읽는다. 없으면 (None, None)."""
+    d = Path(index_dir)
+    f = d / 'vectors.npy'
+    if not f.exists():
+        return None, None
+    vecs = np.load(f)
+    meta = json.loads((d / 'vectors_meta.json').read_text(encoding='utf-8'))
+    return vecs, meta
+
+
+def search_vector(vecs, chunk_ids, query, model, n=CANDIDATES):
+    """질의 -> [(chunk_id, 코사인유사도)] 상위 n 개.
+
+    색인할 때 정규화해 뒀으므로 내적이 곧 코사인 유사도다.
+    1,646개면 전수 비교가 순식간이라 ANN 인덱스가 필요 없다.
+    """
+    from openai import OpenAI
+    q = OpenAI().embeddings.create(model=model, input=[query]).data[0].embedding
+    q = np.asarray(q, dtype=np.float32)
+    q /= np.linalg.norm(q)
+    sims = vecs @ q
+    idx = np.argsort(-sims)[:n]
+    return [(chunk_ids[i], float(sims[i])) for i in idx]
+
+
+# ============================================================ 본인 작성 구간
+def rrf(*ranked_lists, k=RRF_K, n=TOP_K):
+    """여러 검색기의 순위를 RRF 로 합친다. -> [(chunk_id, rrf점수)] 상위 n 개
+
+    평가표 4번이 '직접 구현' 을 요구하는 지점이다.
+    라이브러리의 하이브리드 함수를 부르는 게 아니라 이 결합을 우리가 가지고 있어야 한다.
+
+    공식
+    ----
+        score(d) = Σ  1 / (k + rank_i(d))
+                   i
+
+    rank 는 그 검색기에서 d 가 몇 등이었나다. 1등이면 1, 2등이면 2.
+    어느 검색기에도 안 나온 문서는 그 검색기에서 더하는 값이 0 이다.
+
+    왜 점수가 아니라 순위인가
+    ----------------------
+    BM25 점수는 상한이 없고(오늘 본 값은 8~18), 코사인은 0~1 이다.
+    그냥 더하면 BM25 가 벡터를 압도한다. 순위로 바꾸면 두 검색기가 대등해진다.
+
+    할 일
+    -----
+    1. 결과를 모을 딕셔너리를 하나 만든다 (chunk_id -> 누적 점수)
+    2. ranked_lists 안의 각 목록을 돌면서
+       - 목록 안에서 몇 등인지(rank)를 센다. enumerate(목록, 1) 을 쓰면 1 부터 센다
+       - 그 chunk_id 의 누적 점수에 1 / (k + rank) 를 더한다
+         (아직 없는 chunk_id 면 0 에서 시작해야 한다. dict.get(cid, 0) 을 쓰면 된다)
+    3. 누적 점수가 높은 순으로 정렬해 상위 n 개를 [(chunk_id, 점수)] 로 돌려준다
+
+    인자
+    ----
+    ranked_lists : 각각 [(chunk_id, 점수)] 형태. 점수는 여기서 쓰지 않는다. 순서만 쓴다.
+    """
+    scores = {}
+    for lst in ranked_lists:
+        for rank, (cid, _) in enumerate(lst,1):
+            scores[cid] = scores.get(cid,0) + 1 / (k + rank)
+    return sorted(scores.items(), key= lambda x: x[1], reverse=True)[:n]
+# =========================================================== /본인 작성 구간
+
+
 def load_index(index_dir='data/index', chunks_path='data/chunks.jsonl'):
+    """BM25 색인, 청크 순서 목록, chunk_id -> 청크 사전, 색인 메타를 읽는다."""
     d = Path(index_dir)
     with open(d / 'bm25.pkl', 'rb') as f:
         blob = pickle.load(f)
@@ -86,8 +168,8 @@ def show(results, chunks, query):
         print('  (결과 없음)')
 
 
-def evaluate(path, bm25, chunk_ids, chunks):
-    """dev 평가셋으로 Hit@5 를 잰다. BM25 단독 기준선."""
+def evaluate(path, run, chunks, label):
+    """dev 평가셋으로 Hit@5 를 잰다. run(query) -> [(chunk_id, 점수)]"""
     rows = json.loads(Path(path).read_text(encoding='utf-8'))
     scored = [r for r in rows if r['type'] != 'no_answer']
     hit = n = 0
@@ -99,7 +181,7 @@ def evaluate(path, bm25, chunk_ids, chunks):
             skipped.append(r['id'])
             continue
         n += 1
-        got = {cid for cid, _ in search_bm25(bm25, chunk_ids, r['question'])[:TOP_K]}
+        got = {cid for cid, _ in run(r['question'])[:TOP_K]}
         ok = bool(gold & got)
         hit += ok
         print(f'  {"O" if ok else "X"}  {r["id"]}  {r["question"][:46]}')
@@ -107,7 +189,7 @@ def evaluate(path, bm25, chunk_ids, chunks):
         print(f'\n채점 제외 {len(skipped)}건 (chunk_id 없음): {", ".join(skipped)}')
         print('  -> python src/link_evidence.py <평가셋> --write 를 먼저 돌릴 것')
     if n:
-        print(f'\nHit@{TOP_K} = {hit}/{n}  (BM25 단독, no_answer 제외)')
+        print(f'\nHit@{TOP_K} = {hit}/{n}  ({label}, no_answer 제외)')
     else:
         print('\n채점 가능한 문항이 없다.')
 
@@ -117,15 +199,41 @@ def main():
     ap.add_argument('query', nargs='?')
     ap.add_argument('--eval')
     ap.add_argument('--index', default='data/index')
+    ap.add_argument('--config', default='bm25', choices=['bm25', 'A', 'B'],
+                    help='bm25=BM25 단독(기준선), A=벡터 단독, B=BM25+벡터 RRF')
     a = ap.parse_args()
 
+    load_env()
     bm25, chunk_ids, chunks, meta = load_index(a.index)
-    print(f'색인 {meta["index_version"]} / 청크 {meta["n_chunks"]}개')
+    vecs, vmeta = load_vectors(a.index)
+    model = os.environ.get('EMBEDDING_MODEL')
+    print(f'색인 {meta["index_version"]} / 청크 {meta["n_chunks"]}개 / 구성 {a.config}')
+
+    if a.config in ('A', 'B'):
+        if vecs is None:
+            sys.exit('벡터 색인이 없다. python src/build_vectors.py 를 먼저 돌릴 것')
+        if not model:
+            sys.exit('EMBEDDING_MODEL 이 없다. .env 를 확인할 것')
+        if vmeta['embedding_model'] != model:
+            sys.exit(f'색인은 {vmeta["embedding_model"]} 로 만들었는데 .env 는 {model} 다. '
+                     '모델이 다르면 비교가 무의미하다')
+
+    if a.config == 'bm25':
+        run = lambda q: search_bm25(bm25, chunk_ids, q)
+        label = 'BM25 단독'
+    elif a.config == 'A':
+        run = lambda q: search_vector(vecs, chunk_ids, q, model)
+        label = f'구성 A 벡터 단독 ({model})'
+    else:
+        run = lambda q: rrf(search_bm25(bm25, chunk_ids, q),
+                            search_vector(vecs, chunk_ids, q, model),
+                            n=CANDIDATES)
+        label = f'구성 B BM25+벡터 RRF (k={RRF_K})'
 
     if a.eval:
-        evaluate(a.eval, bm25, chunk_ids, chunks)
+        evaluate(a.eval, run, chunks, label)
     elif a.query:
-        show(search_bm25(bm25, chunk_ids, a.query), chunks, a.query)
+        show(run(a.query), chunks, a.query)
     else:
         ap.error('질의 또는 --eval 중 하나는 필요하다')
 
