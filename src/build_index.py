@@ -59,7 +59,11 @@ def build_bm25(chunks):
 
     힌트: 1번은 리스트 컴프리헨션 한 줄이면 된다.
     """
-    raise NotImplementedError('직접 구현')
+    tokenized = [tokenize(c['text']) for c in chunks]
+    bm25 = BM25Okapi(tokenized)
+
+    return bm25, tokenized
+
 # =========================================================== /본인 작성 구간
 
 
