@@ -1,0 +1,156 @@
+# -*- coding: utf-8 -*-
+"""평가셋의 근거(evidence)에 chunk_id 를 채운다.
+
+담당: 서종찬 | 평가표 3·5번
+실행:
+    python src/link_evidence.py eval/eval-dev.json            # 미리보기만
+    python src/link_evidence.py eval/eval-dev.json --write    # 파일에 반영
+
+왜 section 이 아니라 quote 로 찾나
+-------------------------------
+평가셋의 `section` 은 사람이 원문을 찾기 위한 자유 형식이다.
+'체류자격외 활동 > 3', '나~다', '유의사항' 처럼 청크의 location 과
+글자 그대로 맞지 않는 표기가 섞여 있다. 반면 `quote` 는 원문 발췌라
+본문에서 직접 찾을 수 있다. 그래서 quote 를 1순위 단서로 쓰고,
+section 은 후보가 여럿일 때 가려내는 보조 단서로만 쓴다.
+
+한 근거의 quote 가 여러 청크에 걸치는 경우가 있다(표의 여러 칸을 ' / ' 로
+이어붙인 경우). 그때는 chunk_id 에 가장 많이 겹치는 청크를 넣고,
+나머지는 chunk_ids_all 에 함께 남겨 사람이 판단할 수 있게 한다.
+"""
+import argparse
+import json
+import re
+import sys
+from pathlib import Path
+
+MIN_FRAG = 8     # 이보다 짧은 조각은 흔한 말이라 단서로 쓰지 않는다
+MIN_FRAG_LOOSE = 5   # 1차에서 못 찾았을 때만 쓰는 느슨한 기준
+PROBE = 30       # 조각의 앞 N 글자로 찾는다. 뒤쪽은 줄바꿈 때문에 어긋나기 쉽다
+
+
+def norm(s):
+    return re.sub(r'\s', '', s or '')
+
+
+def fragments(quote, loose=False):
+    """quote 를 찾기 좋은 조각들로 나눈다.
+
+    평가셋의 quote 는 원문 여러 줄을 ' / ' 로 이어붙인 형태가 많다.
+    통째로 찾으면 줄 사이에 낀 글자(표의 다른 칸 등) 때문에 어긋난다.
+    """
+    lim = MIN_FRAG_LOOSE if loose else MIN_FRAG
+    parts = [norm(p) for p in re.split(r'\s*/\s*', quote)]
+    parts = [p for p in parts if len(p) >= lim]
+    if not parts:                       # 전부 짧으면 통째로 쓴다
+        parts = [norm(quote)]
+    return parts
+
+
+def load_chunks(path):
+    """청크를 읽어 (청크, 검색용 문자열) 쌍으로 돌려준다.
+
+    본문뿐 아니라 location 도 검색 대상에 넣는다. 제목이 그대로 인용된
+    근거가 있는데('1. \u201c유학(D-2) 자격 체류자격외 활동 허가\u201d 참조'),
+    제목은 본문이 아니라 경로로 올라가 있어 text 만 보면 못 찾는다.
+    """
+    rows = []
+    with open(path, encoding='utf-8') as f:
+        for line in f:
+            if line.strip():
+                rows.append(json.loads(line))
+    return [(c, norm(c['location']) + '\u241f' + norm(c['text'])) for c in rows]
+
+
+def score_section(chunk, section):
+    """section 과 location 이 얼마나 겹치는지. 후보가 여럿일 때만 쓴다."""
+    a = set(re.split(r'\s*>\s*', norm(section)))
+    b = set(re.split(r'\s*>\s*', norm(chunk['location'])))
+    return len(a & b)
+
+
+def _tally(frags, chunks):
+    tally, found = {}, 0
+    for f in frags:
+        probe = f[:PROBE]
+        hits = [c for c, t in chunks if probe in t]
+        if hits:
+            found += 1
+        for c in hits:
+            tally[c['chunk_id']] = tally.get(c['chunk_id'], 0) + 1
+    return tally, found
+
+
+def link_one(ev, chunks):
+    """근거 하나 -> (대표 chunk_id, 전체 후보, 상태)"""
+    quote = ev.get('quote', '')
+    page = ev.get('page')
+
+    frags = fragments(quote)
+    tally, found = _tally(frags, chunks)
+    if not tally:                       # 1차 실패 -> 느슨한 기준으로 한 번 더
+        frags = fragments(quote, loose=True)
+        tally, found = _tally(frags, chunks)
+
+    if not tally:
+        return None, [], 'not_found'
+
+    by_id = {c['chunk_id']: c for c, _ in chunks}
+
+    def rank(cid):
+        c = by_id[cid]
+        same_page = 1 if page is not None and c.get('page') == page else 0
+        return (tally[cid], same_page, score_section(c, ev.get('section', '')))
+
+    ordered = sorted(tally, key=rank, reverse=True)
+    best = ordered[0]
+    status = 'ok' if found == len(frags) else 'partial'
+    if len(frags) > 1 and tally[best] < len(frags):
+        status = 'spans_multiple' if found == len(frags) else status
+    return best, ordered, status
+
+
+def main():
+    ap = argparse.ArgumentParser()
+    ap.add_argument('evalfile')
+    ap.add_argument('--chunks', default='data/chunks.jsonl')
+    ap.add_argument('--write', action='store_true', help='평가셋 파일에 직접 반영')
+    a = ap.parse_args()
+
+    chunks = load_chunks(a.chunks)
+    rows = json.loads(Path(a.evalfile).read_text(encoding='utf-8'))
+
+    counts = {'ok': 0, 'partial': 0, 'spans_multiple': 0, 'not_found': 0}
+    report = []
+    for r in rows:
+        for i, ev in enumerate(r.get('evidence', [])):
+            cid, allc, st = link_one(ev, chunks)
+            counts[st] += 1
+            ev['chunk_id'] = cid
+            if len(allc) > 1:
+                ev['chunk_ids_all'] = allc[:5]
+            elif 'chunk_ids_all' in ev:
+                del ev['chunk_ids_all']
+            if st != 'ok':
+                report.append((st, r['id'], i, ev.get('page'), (ev.get('quote') or '')[:60]))
+
+    total = sum(counts.values())
+    print(f'근거 {total}건')
+    for k in ('ok', 'spans_multiple', 'partial', 'not_found'):
+        print(f'  {k:16} {counts[k]}')
+    if report:
+        print('\n--- 사람이 확인할 것 ---')
+        for st, qid, i, page, q in report:
+            print(f'  [{st:14}] {qid} evidence[{i}] p.{page} | {q}')
+
+    if a.write:
+        Path(a.evalfile).write_text(
+            json.dumps(rows, ensure_ascii=False, indent=2) + '\n', encoding='utf-8')
+        print(f'\n{a.evalfile} 에 반영했다.')
+    else:
+        print('\n(미리보기만 했다. 반영하려면 --write)')
+    return 0 if counts['not_found'] == 0 else 1
+
+
+if __name__ == '__main__':
+    sys.exit(main())
