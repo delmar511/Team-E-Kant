@@ -101,6 +101,10 @@ def run_agent(question, cfg, retriever, llm_fn=dummy_llm, rewrite_fn=None, cache
         lat["retrieval_ms"] = _ms(t0)
         return finish(Status.RETRIEVAL_ERROR, error=_err(e), query=query)
     lat["retrieval_ms"] = _ms(t0)
+    rerank_ms = getattr(retriever, "last_rerank_ms", None)  # 구성 C: 재정렬 시간을 검색 시간에서 분리
+    if rerank_ms is not None:
+        lat["rerank_ms"] = rerank_ms
+        lat["retrieval_ms"] = round(max(0.0, lat["retrieval_ms"] - rerank_ms), 2)
 
     lacking, reason = (True, "검색 결과 0건") if not candidates else (False, "")
     if not lacking and use_score:

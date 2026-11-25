@@ -1,10 +1,16 @@
-# Config C: config B's fused candidates, rescored by a reranker.
+# Config C: config B's fused candidates, rescored by a cross-encoder reranker.
+# The reranker recomputes query-chunk relevance (not a re-sort of RRF scores).
+# All input_k reranked candidates are returned and logged with rank_before_rerank /
+# rank_after_rerank; the prompt still gets only the top [prompt] max_context_chunks (= 5),
+# which is the reranker's output k. Hit@5 is scored on ranks 1-5 after reranking.
 extends = "B.toml"
 name = "C"
 
 [retrieval]
 mode = "hybrid_rerank"
+top_k = 20
 
 [retrieval.reranker]
-model = "TBD"
+model = "BAAI/bge-reranker-v2-m3"        # multilingual incl. Korean, same bge-m3 family as KURE-v1
 input_k = 20
+max_length = 1024

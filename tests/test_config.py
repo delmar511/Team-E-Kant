@@ -74,7 +74,7 @@ def test_retrieval_version_differs_across_configs(repo):
 
 def test_chunk_setting_change_changes_index_version(repo):
     before = index_version(load(repo, "A.toml"))
-    edit(repo, "base.toml", "chunk_size = 800", "chunk_size = 600")
+    edit(repo, "base.toml", "chunk_size = 1200", "chunk_size = 600")
     assert index_version(load(repo, "A.toml")) != before
 
 
@@ -91,21 +91,21 @@ def test_gate_change_changes_answer_version(repo):
 
 
 def test_source_file_hash_added_to_doc_version(repo):
-    assert build_versions(load(repo, "A.toml")).doc_version == "MAN-STAY-YYMMDD"
+    assert build_versions(load(repo, "A.toml")).doc_version == "MAN-STAY-261116"
     raw = repo / "data/raw/manual.pdf"
     raw.parent.mkdir(parents=True)
     raw.write_bytes(b"%PDF fake")
-    assert build_versions(load(repo, "A.toml")).doc_version.startswith("MAN-STAY-YYMMDD+")
+    assert build_versions(load(repo, "A.toml")).doc_version.startswith("MAN-STAY-261116+")
 
 
 @pytest.mark.parametrize("name, old, new, msg", [
-    ("B.toml", 'name = "B"', 'name = "A"', "must use mode"),
+    ("B.toml", 'name = "B"', 'name = "A"', "모드를 사용해야 함"),
     ("A.toml", "top_k = 5", "top_k = 3", "top_k"),
-    ("B.toml", "bm25_k = 20", "", "needs bm25_k"),
-    ("C.toml", 'model = "TBD"\ninput_k = 20', 'model = "x"\ninput_k = 99', "input_k"),
+    ("B.toml", "bm25_k = 20", "", "bm25_k 및 fusion이 필요함"),
+    ("C.toml", "input_k = 20", "input_k = 99", "input_k"),
     ("C.toml", 'name = "C"', 'name = "C"\n\n[optimization]\nkind = "cache"\n'
-               '[optimization.cache]\nttl_s = 1', "optimization must be off"),
-    ("base.toml", "chunk_overlap = 100", "chunk_overlap = 900", "chunk_overlap"),
+               '[optimization.cache]\nttl_s = 1', "최적화가 꺼져야 함"),
+    ("base.toml", "chunk_overlap = 0", "chunk_overlap = 1500", "chunk_overlap"),
     ("base.toml", "max_context_chunks = 5", "max_context_chunks = 9", "max_context_chunks"),
 ])
 def test_invalid_configs_rejected(repo, name, old, new, msg):
@@ -123,16 +123,16 @@ def test_unknown_key_rejected(repo):
 
 def test_circular_extends_rejected(repo):
     edit(repo, "base.toml", "[docs]", 'extends = "A.toml"\n\n[docs]')
-    with pytest.raises(ConfigError, match="circular"):
+    with pytest.raises(ConfigError, match="순환 extends"):
         load(repo, "A.toml")
 
 
 def test_stale_index_manifest_detected(repo):
     cfg = load(repo, "A.toml")
-    idx = repo / "index"
-    idx.mkdir()
+    idx = repo / "data" / "index"
+    idx.mkdir(parents=True)
     (idx / "manifest.json").write_text(json.dumps({"index_version": "idx-old"}))
-    with pytest.raises(ConfigError, match="stale index"):
+    with pytest.raises(ConfigError, match="오래된 인덱스"):
         check_index_manifest(cfg)
     (idx / "manifest.json").write_text(json.dumps({"index_version": index_version(cfg)}))
     check_index_manifest(cfg)

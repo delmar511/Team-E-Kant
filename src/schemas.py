@@ -62,6 +62,7 @@ class CandidateSource(str, Enum):
     BM25 = "bm25"
     VECTOR = "vector"
     FUSED = "fused"  # RRF 후 (config B, config C 순위 재조정 전)
+    RERANKED = "reranked"  # config C: cross-encoder 재정렬 후 (score = 재정렬 점수)
 
 
 class RunKind(str, Enum):
@@ -221,6 +222,8 @@ class LatencyBreakdown(_Strict):
 
 class Usage(_Strict):
     """비용 입력, problem.md 섹션 11.1."""
+
+    model_config = ConfigDict(extra="forbid", protected_namespaces=())  # model_calls 이름 경고 끔
 
     model_calls: int = Field(default=0, ge=0)
     input_tokens: int = Field(default=0, ge=0)

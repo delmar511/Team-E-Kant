@@ -1,4 +1,6 @@
-# Python 3.10 이상에서 검증.
+# -*- coding: utf-8 -*-
+# (위 줄이 있어야 Windows 의 pip 이 한글 주석을 cp1252 로 읽다가 실패하지 않는다)
+# Python 3.11 이상 필요 (src/config.py 가 tomllib 사용).
 #
 # 외부 프로그램(pip 으로 설치되지 않음)
 #   poppler 의 pdftotext  : PDF -> 텍스트 변환에 필요.
@@ -15,12 +17,12 @@ python-frontmatter==1.1.0  # 문서 상단 메타데이터 파싱
 python-dotenv==1.0.1       # .env 읽기
 
 # --- 벡터 검색 (담당자와 합의 후 확정) ---
-# openai
+sentence-transformers==6.3.0  # 임베딩 nlpai-lab/KURE-v1 (팀 결정) + 재정렬 BAAI/bge-reranker-v2-m3. torch 함께 설치됨
+openai>=1.0                # text-embedding-3-* 비교 실험용 (src/compare_embeddings.py). import 되므로 필요
 # chromadb
 # faiss-cpu
 
-# --- 재정렬 (담당자와 합의 후 확정) ---
-# sentence-transformers
+# --- 재정렬 --- (위 sentence-transformers 사용)
 
 # --- 생성·에이전트 (김선규) ---
 anthropic>=2.12.0          # Claude API (키: .env 의 ANTHROPIC_API_KEY)

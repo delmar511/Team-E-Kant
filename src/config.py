@@ -45,6 +45,7 @@ from schemas import Versions
 
 HASH_LEN = 12
 CORE_CONFIGS = {"A", "B", "C"}
+CHUNKS_PATH = "data/chunks.jsonl"  # 검색기가 읽는 청크 파일 (search_adapter 기본값과 같음)
 
 
 class ConfigError(ValueError):
@@ -100,6 +101,7 @@ class FusionConfig(_Strict):
 class RerankerConfig(_Strict):
     model: str
     input_k: int = Field(gt=0, description="순위 재조정기에 전송된 융합 후보자")
+    max_length: int = Field(default=1024, gt=0, description="질문+청크 쌍의 최대 토큰 수 (넘으면 잘림)")
 
 
 class RetrievalConfig(_Strict):
@@ -338,8 +340,15 @@ def doc_version(cfg: AppConfig) -> str:
 def index_version(cfg: AppConfig) -> str:
     """문서와 모든 청킹/인덱싱 설정에 따라 다릅니다.
     build_index.py는 이 동일한 문자열을 인덱스 매니페스트에 작성해야 합니다.
+    청크 파일 내용 해시도 넣는다: 설정 변경 없이 재청킹·재변환만 해도 버전이 바뀌어
+    이전 색인으로 만든 캐시 답변이 재사용되지 않는다.
     """
-    return "idx-" + _hash({"doc": doc_version(cfg), "index": cfg.index.model_dump(mode="json")})
+    chunks = cfg.path(CHUNKS_PATH)
+    # 줄바꿈 정규화: Windows(CRLF) 체크아웃과 macOS(LF) 체크아웃에서 같은 버전이 나오게
+    chunks_hash = (hashlib.sha256(chunks.read_bytes().replace(b"\r\n", b"\n")).hexdigest()[:HASH_LEN]
+                   if chunks.is_file() else None)
+    return "idx-" + _hash({"doc": doc_version(cfg), "index": cfg.index.model_dump(mode="json"),
+                           "chunks": chunks_hash})
 
 
 def prompt_version(cfg: AppConfig) -> str:

@@ -3,17 +3,19 @@
 # Values marked TBD are placeholders to set before the first index build.
 
 [docs]
-doc_version = "MAN-STAY-YYMMDD"          # manual edition, set when collected
+doc_version = "MAN-STAY-261116"          # manual edition 2026-11-16 (docs/document_index.md)
 source_path = "data/raw/manual.pdf"      # raw file; its hash is added to doc_version
-documents_csv = "docs/documents.csv"     # chapter-level doc_ids
+documents_csv = "docs/document_index.md" # chapter-level doc_ids (not read by code yet)
 
 [index]
-chunk_size = 800                         # TBD
-chunk_overlap = 100                      # TBD
+# Chunks follow the manual's structure (#### items, else ### / ##); only sections longer
+# than chunk_size chars are split further at paragraph breaks, with no overlap (src/ingest/chunk.py MAXLEN).
+chunk_size = 1200
+chunk_overlap = 0
 chunk_unit = "chars"
-embedding_model = "TBD"
-bm25_tokenizer = "TBD"              # e.g. kiwi, mecab, whitespace
-index_dir = "index"
+embedding_model = "nlpai-lab/KURE-v1"    # team decision 2026-11-25; local, 1024-dim (src/build_vectors.py --model)
+bm25_tokenizer = "kiwipiepy+visa-code"   # src/tokenizer.py: kiwi morphemes, visa codes (D-2-2) kept whole
+index_dir = "data/index"
 
 [generation]                             # identical for A/B/C
 model = "claude-opus-5-5"

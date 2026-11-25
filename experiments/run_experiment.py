@@ -50,6 +50,10 @@ records, traces, lines = [], [], []
 for cfg in cfgs:
     versions = build_versions(cfg)
     retriever = make_retriever(cfg, stub=a.stub)
+    # 설정이 아직 TBD 면 실제 색인을 만든 임베딩 모델을 기록한다 (기록만 보고 어느 모델 결과인지 알 수 있게)
+    actual = getattr(retriever, "model", None)
+    if actual and versions.embedding_model in ("", "TBD"):
+        versions = versions.model_copy(update={"embedding_model": actual})
     llm_fn = make_answer_llm(cfg) if a.llm == "claude" else dummy_llm
     rewrite_fn = (make_rewrite_llm(cfg) if a.llm == "claude" and cfg.optimization.kind is OptimizationKind.REWRITE
                   else None)
