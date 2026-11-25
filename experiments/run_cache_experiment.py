@@ -68,14 +68,19 @@ def main(argv=None):
         print(f"[주의] 발제 기준은 5문항인데 {len(qs)}문항입니다")
 
     cfg2 = bumped(cfg)
-    v1, v2 = build_versions(cfg), build_versions(cfg2)
-    assert v1.doc_version != v2.doc_version and v1.index_version != v2.index_version
     retriever = make_retriever(cfg, stub=a.stub)
     llm_fn = make_answer_llm(cfg) if a.llm == "claude" else dummy_llm
+    # run_experiment.py 와 같게: effort 를 생성 모델 이름에 붙여 기록 (캐시 키에도 반영)
+    tag = {"generation_model": llm_fn.model_id}
+    actual = getattr(retriever, "model", None)
+    if actual and cfg.index.embedding_model in ("", "TBD"):
+        tag["embedding_model"] = actual
+    v1, v2 = (build_versions(c).model_copy(update=tag) for c in (cfg, cfg2))
+    assert v1.doc_version != v2.doc_version and v1.index_version != v2.index_version
     cache = AnswerCache(cfg.optimization.cache.ttl_s)
 
     stem = f"branch_cache_{a.config}" + ("_stub" if a.stub else "")
-    rec_path, trace_path = out_paths(stem)
+    run_stamp, rec_path, trace_path = out_paths(stem)
     records, traces, failures = [], [], []
     first_status = {}
     phases = [("miss", cfg, v1), ("hit", cfg, v1), ("updated", cfg2, v2)]
@@ -85,7 +90,7 @@ def main(argv=None):
             n += 1
             started = datetime.now(timezone.utc)
             result = run_agent(q["question"], c, retriever, llm_fn, None, cache, v, user_scope=a.user_scope)
-            rec = make_record(q, c, v, result, f"{stem}_{n:03d}", RunKind.BRANCH, started, datetime.now(timezone.utc))
+            rec = make_record(q, c, v, result, f"{run_stamp}_{stem}_{n:03d}", RunKind.BRANCH, started, datetime.now(timezone.utc))
             resp = rec.response
             if phase == "miss":
                 first_status[q["question_id"]] = resp.status

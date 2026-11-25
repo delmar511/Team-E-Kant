@@ -102,7 +102,7 @@ def test_cache_experiment_15_runs(tmp_path, monkeypatch):
     """미적중 5 -> 적중 5 -> 문서 버전 변경 후 미적중 5. 기대와 어긋나면 SystemExit(1)."""
     import run_cache_experiment as rce
     paths = (tmp_path / "c.records.jsonl", tmp_path / "c.trace.jsonl")
-    monkeypatch.setattr(rce, "out_paths", lambda stem: paths)
+    monkeypatch.setattr(rce, "out_paths", lambda stem: ("20260101000000", *paths))
     rce.main(["--stub", "--eval", str(ROOT / "eval" / "eval-dev.json")])
     rows = [json.loads(line) for line in open(paths[1], encoding="utf-8")]
     assert len(rows) == 15 and all(r["ok"] for r in rows)

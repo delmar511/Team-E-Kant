@@ -48,7 +48,8 @@ python experiments/run_experiment.py --configs A B --eval eval/eval-dev.json --l
 3. **색인 위치**: `base.toml` 은 `index_dir = "index"` 인데 실제 색인은 `data/index` 입니다. 어댑터는 `data/index` 를 씁니다. `config.check_index_manifest()` 가 찾는 `manifest.json` 도 `build_index.py` 는 `meta.json` 으로 씁니다.
 4. **`build_vectors.py` 의존성**: KURE(로컬 모델)만 써도 26행 `from openai import APIStatusError` 때문에 `openai` 가 없으면 실패합니다.
    `requirements.txt` 에 `openai`, `sentence-transformers` 를 넣거나 import 를 OpenAI 분기 안으로 옮겨 주세요.
-5. **근거 없음 점수 분포**: 기본 판정은 `model_judgment` 입니다. 점수 게이트(`score_threshold`/`both`)를 쓸지 dev 결과를 보고 정하겠습니다. 그때 A·B 점수 분포를 부탁드립니다.
+5. **근거 없음 점수 분포**: dev 실행 기록으로 직접 봤습니다. A(코사인)는 차이가 너무 작고 B(RRF)는 근거 없음 문항이 오히려 최고점이라
+   점수 게이트는 쓰지 않고 `model_judgment` 를 유지합니다 (`results/runs/2026-11-25_evidence-gate-scores.md`). 구성 C 가 생기면 재정렬 점수로 다시 보겠습니다.
 
 ## 4. 박태환님께
 
