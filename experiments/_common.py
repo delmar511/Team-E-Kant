@@ -104,15 +104,41 @@ def trace_row(q, record: RunRecord, trace):
 
 
 def out_paths(stem):
+    """(실행 시각 stamp, records 경로, trace 경로). stamp 는 run_id 에도 넣어 실행 간 run_id 가 겹치지 않게 한다."""
     RUNS_DIR.mkdir(parents=True, exist_ok=True)
+    stamp = f"{datetime.now():%Y%m%d%H%M%S}"
     base = RUNS_DIR / f"{datetime.now():%Y-%m-%d_%H%M%S}_{stem}"
-    return base.with_suffix(".records.jsonl"), base.with_suffix(".trace.jsonl")
+    return stamp, base.with_suffix(".records.jsonl"), base.with_suffix(".trace.jsonl")
+
+
+def _line(r):
+    return (r.model_dump_json() if hasattr(r, "model_dump_json") else json.dumps(r, ensure_ascii=False)) + "\n"
+
+
+class JsonlWriter:
+    """한 줄씩 바로 쓰고 flush 한다. 실행 도중 멈춰도 그때까지의 기록이 파일에 남는다. 기존 파일은 덮어쓰지 않는다."""
+
+    def __init__(self, path):
+        self.path = path
+        self._f = None
+
+    def __enter__(self):
+        self._f = open(self.path, "x", encoding="utf-8")
+        return self
+
+    def write(self, row):
+        self._f.write(_line(row))
+        self._f.flush()
+
+    def __exit__(self, *exc):
+        self._f.close()
+        return False
 
 
 def write_jsonl(path, rows):
-    with open(path, "w", encoding="utf-8") as f:
+    with JsonlWriter(path) as w:
         for r in rows:
-            f.write((r.model_dump_json() if hasattr(r, "model_dump_json") else json.dumps(r, ensure_ascii=False)) + "\n")
+            w.write(r)
 
 
 def summarize(config_name, traces, records):

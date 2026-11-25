@@ -9,9 +9,11 @@
     python experiments/run_experiment.py --configs A B C --eval eval/eval-test.json --llm claude --kind core   # 본 평가 (비용 발생)
 """
 import argparse
+import os
+import sys
 from datetime import datetime, timezone
 
-from _common import ROOT, load_questions, make_record, out_paths, summarize, trace_row, write_jsonl
+from _common import ROOT, JsonlWriter, load_questions, make_record, out_paths, summarize, trace_row
 
 from agent import run_agent  # noqa: E402  (_common 이 src 를 경로에 넣음)
 from answer.generator import dummy_llm, make_answer_llm, make_rewrite_llm  # noqa: E402
@@ -34,6 +36,9 @@ a = p.parse_args()
 from dotenv import load_dotenv  # noqa: E402
 
 load_dotenv(ROOT / ".env")  # ANTHROPIC_API_KEY, EMBEDDING_MODEL, LLM_EFFORT
+if a.llm == "claude" and not os.environ.get("ANTHROPIC_API_KEY", "").strip():
+    # 키 없이 돌리면 모든 문항이 model_error 로 기록되어 실행 기록이 오염된다. 시작 전에 멈춘다.
+    sys.exit("ANTHROPIC_API_KEY 가 없습니다. .env 를 확인하세요 (--llm claude)")
 
 cfgs = [load_config(ROOT / "configs" / f"{name}.toml") for name in a.configs]
 core = [c for c in cfgs if c.optimization.kind is OptimizationKind.NONE]
@@ -45,28 +50,32 @@ if a.only:
 kind = RunKind(a.kind)
 
 stem = f"{a.kind}_{'-'.join(c.name.replace('+', '_') for c in cfgs)}" + (f"_{a.name}" if a.name else "")
-rec_path, trace_path = out_paths(stem)
-records, traces, lines = [], [], []
-for cfg in cfgs:
-    versions = build_versions(cfg)
-    retriever = make_retriever(cfg, stub=a.stub)
-    llm_fn = make_answer_llm(cfg) if a.llm == "claude" else dummy_llm
-    rewrite_fn = (make_rewrite_llm(cfg) if a.llm == "claude" and cfg.optimization.kind is OptimizationKind.REWRITE
-                  else None)
-    cache = (AnswerCache(cfg.optimization.cache.ttl_s) if cfg.optimization.kind is OptimizationKind.CACHE else None)
-    recs, trs = [], []
-    for i, q in enumerate(qs, 1):
-        started = datetime.now(timezone.utc)
-        result = run_agent(q["question"], cfg, retriever, llm_fn, rewrite_fn, cache, versions)
-        rec = make_record(q, cfg, versions, result, f"{stem}_{cfg.name}_{i:03d}", kind, started,
-                          datetime.now(timezone.utc))
-        recs.append(rec)
-        trs.append(trace_row(q, rec, {**result.trace, "config_name": cfg.name}))
-    lines.append(summarize(cfg.name, trs, recs))
-    print(lines[-1])
-    records += recs
-    traces += trs
+run_stamp, rec_path, trace_path = out_paths(stem)
+n_done = 0
+# 실행마다 바로 한 줄씩 쓴다: 중간에 멈춰도 그때까지의 기록(과 API 비용)이 남는다
+with JsonlWriter(rec_path) as rec_out, JsonlWriter(trace_path) as trace_out:
+    for cfg in cfgs:
+        llm_fn = make_answer_llm(cfg) if a.llm == "claude" else dummy_llm
+        # effort 는 config 에 칸이 없어 생성 모델 이름에 붙여 기록한다 (예: claude-opus-5-5@medium). 캐시 키에도 반영됨
+        versions = build_versions(cfg).model_copy(update={"generation_model": llm_fn.model_id})
+        retriever = make_retriever(cfg, stub=a.stub)
+        rewrite_fn = (make_rewrite_llm(cfg) if a.llm == "claude" and cfg.optimization.kind is OptimizationKind.REWRITE
+                      else None)
+        cache = (AnswerCache(cfg.optimization.cache.ttl_s) if cfg.optimization.kind is OptimizationKind.CACHE
+                 else None)
+        recs, trs = [], []
+        for i, q in enumerate(qs, 1):
+            started = datetime.now(timezone.utc)
+            result = run_agent(q["question"], cfg, retriever, llm_fn, rewrite_fn, cache, versions)
+            # run_id 에 실행 시각을 넣어 같은 인자로 다시 돌려도 겹치지 않게 한다
+            rec = make_record(q, cfg, versions, result, f"{run_stamp}_{stem}_{cfg.name}_{i:03d}", kind, started,
+                              datetime.now(timezone.utc))
+            tr = trace_row(q, rec, {**result.trace, "config_name": cfg.name})
+            rec_out.write(rec)
+            trace_out.write(tr)
+            recs.append(rec)
+            trs.append(tr)
+            n_done += 1
+        print(summarize(cfg.name, trs, recs))
 
-write_jsonl(rec_path, records)
-write_jsonl(trace_path, traces)
-print(f"저장: {rec_path}\n      {trace_path}\n분모(전체 시도): {len(records)} = 구성 {len(cfgs)} x 문항 {len(qs)}")
+print(f"저장: {rec_path}\n      {trace_path}\n분모(전체 시도): {n_done} = 구성 {len(cfgs)} x 문항 {len(qs)}")
