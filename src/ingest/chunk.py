@@ -42,6 +42,7 @@ def parse(md_path):
         raw = raw[m.end():]
 
     doc_id = fm.get('doc_id', 'DOC')
+    stack = []                     # [(제목 수준, 제목)] — 실제 중첩을 추적한다
     path = [fm.get('title', '')]
     page = None
     buf, out = [], []
@@ -93,7 +94,19 @@ def parse(md_path):
             if buf:
                 emit()
                 buf = []
-            path = path[:level - 1] + [title] if level > 1 else [title]
+            # 같거나 더 깊은 수준은 걷어내고 쌓는다.
+            # path[:level-1] 로 자르면 '##' 다음에 '###' 없이 '####' 가 올 때
+            # 형제인 '가./나./다.' 가 서로 부모-자식으로 엮인다.
+            #   (잘못) 체류기간 연장허가 > 가. 기본원칙 > 다. 제출서류
+            #   (바름) 체류기간 연장허가 > 다. 제출서류
+            if level == 1:
+                stack = []
+                path = [title]
+            else:
+                while stack and stack[-1][0] >= level:
+                    stack.pop()
+                stack.append((level, title))
+                path = [path[0]] + [t for _, t in stack]
             continue
         buf.append(line)
     if buf:

@@ -1,23 +1,9 @@
 # -*- coding: utf-8 -*-
-"""체류민원 매뉴얼 전체를 자격별 Markdown 으로 일괄 변환한다.
+"""31개 체류자격 절을 일괄 변환한다."""
+import re, sys, os, subprocess
+import convert as C
 
-선행 조건: poppler 의 pdftotext 로 PDF 를 텍스트로 뽑아둘 것.
-    pdftotext -layout 매뉴얼.pdf cheryu.txt
-
-사용: python src/ingest/batch_convert.py cheryu.txt docs/corpus
-"""
-import os
-import re
-import sys
-
-import pdf_to_md as C
-
-if len(sys.argv) < 3:
-    sys.exit('사용: python batch_convert.py <텍스트파일> <출력폴더>')
-
-SRC, OUT = sys.argv[1], sys.argv[2]
-
-txt = open(SRC, encoding='utf-8').read()
+txt = open('/tmp/cheryu.txt', encoding='utf-8').read()
 pages = txt.split('\f')
 
 # 절 시작 감지 (페이지 첫 2줄에 '명칭(코드)' 단독)
@@ -43,15 +29,19 @@ for pg, cd, nm in cand:
 for k in range(len(secs) - 1):
     secs[k].append(secs[k + 1][0] - 1)
 secs[-1].append(527)          # H-1 끝. 이후는 동포 특례 + 붙임이라 별도 처리
-secs.append([528, 'F-4F-5', '재외동포·영주 특례', 662])   # 붙임 직전까지
+secs.append([528, 'F-4F-5', '재외동포·영주 특례', 662])
+# 2단 표가 아닌 부록. 평가셋이 이 범위를 근거로 쓰므로 반드시 포함한다.
+secs.append([663, 'ANNEX', '붙임 서식 및 취업제한분야', 704])
+secs.append([705, 'WIDE', '광역형 비자 시범사업', 796])
 
-os.makedirs(OUT, exist_ok=True)
+os.makedirs('/tmp/corpus', exist_ok=True)
+unknown = {}
 for pg, cd, nm, end in secs:
     title = f'{nm}({cd})'
     doc_id = 'DOC-' + cd.replace('-', '')
     sel = [(i + 1, pages[i]) for i in range(pg - 1, min(end, len(pages)))]
     md = C.convert(sel, title, doc_id)
-    fn = os.path.join(OUT, f'{doc_id}_{nm}.md'.replace('\u00b7', '').replace(' ', ''))
+    fn = f'/tmp/corpus/{doc_id}_{nm}.md'
     open(fn, 'w', encoding='utf-8').write(md)
     h2 = len(re.findall(r'^## ', md, re.M))
     print(f'  {doc_id:10} {title:16} p.{pg}-{end:4}  {end-pg+1:3}쪽  ##{h2:3}개  {len(md):7}자')

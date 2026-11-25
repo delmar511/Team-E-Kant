@@ -20,21 +20,24 @@ NOISE = [
 
 LABELS = [
     '자격 해당자 및 활동범위',
+    '활동범위 및 자격 해당자',      # 일반연수(D-4) 는 어순을 뒤집어 쓴다
     '1회에 부여할 수 있는 체류기간 상한',
     '별도 허가 없이 유학활동이 가능한 체류자격',
     '별도 허가 없이 연수활동이 가능한 체류자격',
     '체류자격외 활동',
-    '시간제취업',
+    '시간제취업 활동 허가',   # 원문 쪽머리는 '시간제취업 / 활동 허가' 두 줄
     '활동 허가 제한대상',
     '체류자격 부여',
     '체류자격 변경허가',
     '체류기간 연장허가',
     '근무처 변경·추가',
+    '근무처의 변경·추가',           # 쪽에 따라 '의' 가 붙는다
     '재입국허가',
     '외국인등록',
     '사증발급인정서',
 ]
 KEYS = [re.sub(r'[\s·]', '', x) for x in LABELS]
+PUA = re.compile(r'[\uE000-\uF8FF]')   # 원문의 '·' 가 사설영역 글리프로 깨져 있다
 
 # 번호/가나다 항목으로 인정하려면 뒤에 실질 내용이 있어야 한다 (날짜 '20. 3. 1.' 배제)
 SUBSTANCE = re.compile(r'[가-힣A-Za-z]')   # 공백 제거 후 글자가 2자 이상인지로 판정
@@ -60,7 +63,7 @@ def norm_code(s):
 
 def label_state(buf):
     """buf 가 업무명으로 완성됐는가 / 아직 모으는 중인가."""
-    k = re.sub(r'[\s·]', '', buf)
+    k = re.sub(r'[\s·]', '', PUA.sub('', buf))
     if not k:
         return None, False
     for lab, key in zip(LABELS, KEYS):
@@ -77,6 +80,18 @@ def split_left(raw):
     if not m:
         return None, raw
     return squash(m.group(1)), m.group(2)
+
+
+def join_spread(title):
+    """제목의 자간 벌림만 붙인다. '대    상' -> '대상'
+
+    공백으로 나눈 조각이 전부 한 글자일 때만 붙인다.
+    '허가 기준 등'(조각이 2글자 포함)은 그대로 둔다.
+    """
+    parts = title.split()
+    if len(parts) >= 2 and all(len(x) == 1 for x in parts):
+        return ''.join(parts)
+    return title
 
 
 def column_split(raw):
@@ -151,10 +166,12 @@ def convert(pages, title, code, version='2026-11-16'):
         if not line or re.fullmatch(r'[가-힣]{2,8}\([A-Z]-\d+\)', re.sub(r'\s', '', line)):
             return []
         # 날짜('20. 3. 1.')를 번호 항목으로 오인하지 않는다
-        if re.match(r'^\d{1,2}\.\s', line) and len(re.sub(r'[^가-힣A-Za-z]', '', line[2:])) >= 2:
-            return ['', f'### {line}', '']
-        if re.match(r'^[가-힣]\.\s', line) and len(re.sub(r'[^가-힣A-Za-z]', '', line[2:])) >= 2:
-            return ['', f'#### {line}', '']
+        m = re.match(r'^(\d{1,2}\.)\s+(.*)$', line)
+        if m and len(re.sub(r'[^가-힣A-Za-z]', '', m.group(2))) >= 2:
+            return ['', f'### {m.group(1)} {join_spread(m.group(2))}', '']
+        m = re.match(r'^([가-힣]\.)\s+(.*)$', line)
+        if m and len(re.sub(r'[^가-힣A-Za-z]', '', m.group(2))) >= 2:
+            return ['', f'#### {m.group(1)} {join_spread(m.group(2))}', '']
         if re.match(r'^[□■]', line):
             return ['- ' + line.lstrip('□■ ')]
         return [line]
