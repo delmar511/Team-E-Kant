@@ -206,11 +206,14 @@ class OpenAILLM:
         if self.structured:
             kwargs["response_format"] = {"type": "json_schema",
                                          "json_schema": {"name": "answer", "schema": ANSWER_SCHEMA, "strict": True}}
+        extra = {}
+        if self.model.startswith("o"):
+            extra["reasoning_effort"] = self.effort
         r = self._get_client().chat.completions.create(
             model=self.model,
             messages=[{"role": "user", "content": prompt}],
             max_completion_tokens=self.max_tokens,
-            reasoning_effort=self.effort,
+            **extra,
             **kwargs,
         )
         choice = r.choices[0]

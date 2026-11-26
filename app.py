@@ -7,6 +7,9 @@ import sys
 import traceback
 
 import streamlit as st
+from dotenv import load_dotenv
+
+load_dotenv()
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "src"))
 
@@ -89,11 +92,11 @@ with st.sidebar:
 # ---------------------------------------------------------------------------
 # API 키 확인
 # ---------------------------------------------------------------------------
-api_key = os.getenv("ANTHROPIC_API_KEY", "")
+api_key = os.getenv("OPENAI_API_KEY", "")
 api_key_missing = not api_key.strip()
 
 if api_key_missing:
-    st.error("ANTHROPIC_API_KEY 환경 변수가 설정되지 않았습니다. .env 파일을 확인하세요.")
+    st.error("OPENAI_API_KEY 환경 변수가 설정되지 않았습니다. .env 파일을 확인하세요.")
 
 # ---------------------------------------------------------------------------
 # 세션 상태: 캐시 인스턴스
@@ -129,7 +132,7 @@ if not submitted or not question.strip():
 # ---------------------------------------------------------------------------
 try:
     retriever = _make_retriever(cfg_name)
-    llm_fn = make_answer_llm(cfg)
+    llm_fn = make_answer_llm(cfg, provider="openai")
 
     cache = None
     rewrite_fn = None
