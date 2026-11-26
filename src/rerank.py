@@ -10,6 +10,7 @@ RRF 점수로 다시 정렬하는 것이 아니다 (docs/design.md 5절). 질문
 """
 from __future__ import annotations
 
+import threading
 from typing import Callable, Sequence
 
 ScoreFn = Callable[[str, Sequence[str]], Sequence[float]]
@@ -42,11 +43,14 @@ class CrossEncoderScorer:
         self.max_length = max_length
         self.batch_size = batch_size
         self._model = None
+        self._lock = threading.Lock()
 
     def _load(self):
         if self._model is None:
-            from sentence_transformers import CrossEncoder
-            self._model = CrossEncoder(self.model_name, max_length=self.max_length)
+            with self._lock:
+                if self._model is None:
+                    from sentence_transformers import CrossEncoder
+                    self._model = CrossEncoder(self.model_name, max_length=self.max_length)
         return self._model
 
     def __call__(self, query: str, texts: Sequence[str]) -> list[float]:

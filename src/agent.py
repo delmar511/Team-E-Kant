@@ -18,7 +18,7 @@ from dataclasses import dataclass, field
 from answer.citation_check import check_citations, mark_invalid
 from answer.evidence_gate import NO_EVIDENCE_MESSAGE, gate_modes, model_gate, score_gate
 from answer.generator import CallUsage, dummy_llm, generate
-from answer.prompt import build_prompt, select_context
+from answer.prompt import build_prompt, build_prompt_expanded, expand_context, select_context
 from config import OptimizationKind
 from optimize.cache import make_key
 from optimize.rewrite import REWRITE_PROMPT_VERSION, rewrite_query
@@ -116,7 +116,14 @@ def run_agent(question, cfg, retriever, llm_fn=dummy_llm, rewrite_fn=None, cache
         context = select_context(candidates, cfg.prompt.max_context_chunks, cfg.prompt.max_context_chars)
         context_ids = [c.chunk.chunk_id for c in context]
         trace["context_chunk_ids"] = context_ids
-        prompt = build_prompt(question, context, cfg.path(cfg.prompt.template_path))
+        section_index = getattr(retriever, "section_index", {})
+        if cfg.prompt.expand_sections and section_index:
+            expanded_blocks = expand_context(context, section_index, cfg.prompt.max_expanded_chars)
+            trace["expanded_chunk_ids"] = [cid for b in expanded_blocks for cid in b.expanded_from]
+            trace["expanded_chars"] = sum(len(b.text) for b in expanded_blocks)
+            prompt = build_prompt_expanded(question, expanded_blocks, cfg.path(cfg.prompt.template_path))
+        else:
+            prompt = build_prompt(question, context, cfg.path(cfg.prompt.template_path))
         t0 = time.perf_counter()
         try:
             out = generate(prompt, llm_fn, usage)

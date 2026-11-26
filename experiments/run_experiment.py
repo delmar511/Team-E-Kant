@@ -11,6 +11,7 @@
 import argparse
 import os
 import sys
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timezone
 
 from _common import ROOT, JsonlWriter, load_questions, make_record, out_paths, summarize, trace_row
@@ -73,18 +74,29 @@ with JsonlWriter(rec_path) as rec_out, JsonlWriter(trace_path) as trace_out:
         cache = (AnswerCache(cfg.optimization.cache.ttl_s) if cfg.optimization.kind is OptimizationKind.CACHE
                  else None)
         recs, trs = [], []
-        for i, q in enumerate(qs, 1):
+        indexed_qs = list(enumerate(qs, 1))
+
+        def run_one(i_q):
+            i, q = i_q
             started = datetime.now(timezone.utc)
             result = run_agent(q["question"], cfg, retriever, llm_fn, rewrite_fn, cache, versions)
-            # run_id 에 실행 시각을 넣어 같은 인자로 다시 돌려도 겹치지 않게 한다
             rec = make_record(q, cfg, versions, result, f"{run_stamp}_{stem}_{cfg.name}_{i:03d}", kind, started,
                               datetime.now(timezone.utc))
             tr = trace_row(q, rec, {**result.trace, "config_name": cfg.name})
-            rec_out.write(rec)
-            trace_out.write(tr)
-            recs.append(rec)
-            trs.append(tr)
-            n_done += 1
+            return rec, tr
+
+        # LLM 호출은 I/O 대기라 10개 병렬이 효과적; 재정렬기는 CPU 경합이 심해 적게 열어 단일 호출 지연 완화
+        from config import RetrievalMode
+        max_workers = 3 if cfg.retrieval.mode is RetrievalMode.HYBRID_RERANK else min(len(indexed_qs), 10)
+        with ThreadPoolExecutor(max_workers=max_workers) as pool:
+            futures = {pool.submit(run_one, i_q): i_q for i_q in indexed_qs}
+            for future in as_completed(futures):
+                rec, tr = future.result()
+                rec_out.write(rec)
+                trace_out.write(tr)
+                recs.append(rec)
+                trs.append(tr)
+                n_done += 1
         print(summarize(cfg.name, trs, recs))
 
 print(f"저장: {rec_path}\n      {trace_path}\n분모(전체 시도): {n_done} = 구성 {len(cfgs)} x 문항 {len(qs)}")

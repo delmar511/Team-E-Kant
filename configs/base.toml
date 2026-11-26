@@ -31,6 +31,8 @@ label = "v1"
 template_path = "src/answer/templates/answer_v1.txt"
 max_context_chunks = 5
 max_context_chars = 8000
+expand_sections = true                   # 절이 조각으로 나뉜 경우 프롬프트에서 전체 절로 확장
+max_expanded_chars = 20000               # 확장 컨텍스트 총 글자 수 상한 (dev-only 근거 §11)
 
 [evidence_gate]                          # tuned on dev.json only
 method = "model_judgment"

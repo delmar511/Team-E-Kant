@@ -164,6 +164,8 @@ class PromptConfig(_Strict):
     template_path: str
     max_context_chunks: int = Field(gt=0)
     max_context_chars: int = Field(gt=0)
+    expand_sections: bool = Field(default=False, description="선택된 청크를 절 전체로 확장")
+    max_expanded_chars: int = Field(default=20000, gt=0, description="확장 컨텍스트 총 글자 수 상한")
 
 
 class EvidenceGateConfig(_Strict):
@@ -372,7 +374,9 @@ def answer_config_version(cfg: AppConfig) -> str:
     return "ans-" + _hash({
         "generation": cfg.generation.model_dump(mode="json"),
         "context": {"max_context_chunks": cfg.prompt.max_context_chunks,
-                    "max_context_chars": cfg.prompt.max_context_chars},
+                    "max_context_chars": cfg.prompt.max_context_chars,
+                    "expand_sections": cfg.prompt.expand_sections,
+                    "max_expanded_chars": cfg.prompt.max_expanded_chars},
         "evidence_gate": cfg.evidence_gate.model_dump(mode="json"),
     })
 

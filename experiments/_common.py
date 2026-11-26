@@ -6,6 +6,7 @@
 import json
 import statistics
 import sys
+import threading
 from collections import Counter
 from datetime import datetime
 from pathlib import Path
@@ -121,14 +122,16 @@ class JsonlWriter:
     def __init__(self, path):
         self.path = path
         self._f = None
+        self._lock = threading.Lock()
 
     def __enter__(self):
         self._f = open(self.path, "x", encoding="utf-8")
         return self
 
     def write(self, row):
-        self._f.write(_line(row))
-        self._f.flush()
+        with self._lock:
+            self._f.write(_line(row))
+            self._f.flush()
 
     def __exit__(self, *exc):
         self._f.close()
