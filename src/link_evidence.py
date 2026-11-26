@@ -17,7 +17,9 @@ section 은 후보가 여럿일 때 가려내는 보조 단서로만 쓴다.
 
 쪽 모드(--mode page)
 -------------------
-시험셋(eval-test.json)의 근거에는 quote 가 없고 쪽(page)만 있다. 쪽 기준 연결은 틀리기 쉬워서
+시험셋(eval-test.json)의 근거에는 quote 키가 아예 없고 쪽(page)만 있다. 이때 기본 quote
+모드는 멈춘다 -- 예전에는 조용히 쪽 모드로 넘어가 32건을 전부 자동 배정했고, 그 값이
+정답지에 그대로 들어갔다. 모드는 사람이 직접 고를 것. 쪽 기준 연결은 틀리기 쉬워서
 (같은 쪽에 청크가 여럿이면 어느 것인지 알 수 없다) 보수적으로만 한다.
   - 그 쪽을 쪽 범위에 가진 문서 안에서, 그 쪽에 있는 청크가 정확히 1개일 때만 연결한다.
   - 0개이거나 2개 이상이면 chunk_id 는 null, 후보 목록은 chunk_ids_all 에 남긴다.
@@ -222,6 +224,26 @@ def main():
     by_id = {c['chunk_id']: c for c, _ in chunks}
     doc_pages = doc_page_ranges(chunks)
     rows = json.loads(Path(a.evalfile).read_text(encoding='utf-8'))
+
+    # quote 가 없는 근거를 먼저 센다.
+    # 예전에는 여기서 멈추지 않고 조용히 쪽 모드로 넘어갔다. 그 결과
+    # eval-test.json 32건이 전부 자동 배정됐고, 질문은 한 번도 읽히지 않았다.
+    # 입력이 없으면 실패로 보고해야지, 다른 방식으로 바꿔 돌리면 안 된다.
+    no_quote = [(r['id'], i) for r in rows
+                for i, ev in enumerate(r.get('evidence', []))
+                if not norm(ev.get('quote'))]
+    if no_quote and a.mode == 'quote':
+        total_ev = sum(len(r.get('evidence', [])) for r in rows)
+        qid, idx = no_quote[0]
+        sys.exit(
+            f'{Path(a.evalfile).name}: 근거 {total_ev}건 중 {len(no_quote)}건에 quote 가 없다'
+            f' (예: {qid} evidence[{idx}]).\n'
+            'quote 모드는 원문 발췌가 있어야 한다. 셋 중 하나를 고를 것.\n'
+            '  1) 평가셋에 quote 를 채운다            — 가장 정확하다\n'
+            '  2) --mode facts   expected_facts 로 찾고, 확신 없으면 비워둔다\n'
+            '  3) --mode page    쪽 기준, 후보가 정확히 1개일 때만 배정한다')
+    if no_quote:
+        print(f'알림: quote 없는 근거 {len(no_quote)}건을 {a.mode} 모드로 처리한다.\n')
 
     counts = {'ok': 0, 'partial': 0, 'spans_multiple': 0, 'not_found': 0,
               'page_ok': 0, 'page_ambiguous': 0, 'facts_ok': 0, 'facts_weak': 0}
