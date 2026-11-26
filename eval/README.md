@@ -179,6 +179,7 @@
 | 2026-11-25 | eval-v0.1 | DEV-009 | `reference_evidence[0]`(p.3 유의사항) `chunk_id` null -> `DOC-INTRO#5f777614b7` | 1~13쪽 미색인 해소 (색인 idx-v2). 다른 문항 `chunk_id` 변경 없음 | |
 | 2026-11-26 | eval-v0.1 | TEST-010 | `type` `false_premise` -> `direct` (질문·정답·근거는 변경 없음) | `false_premise` 는 허용 유형(3절)에 없어 로더가 경고함. 질문이 매뉴얼 용어(어학연수생, 시간제취업 허가)를 그대로 쓰고 p.37·39 에서 바로 답할 수 있어 `direct` 정의에 맞음. 과제 규정 구성(직접 10 / 변형·유사 7 / 근거 없음 3)과도 일치. 잘못된 전제("주말에만 허가 없이")를 바로잡아야 하는 문항이라는 점은 실패 분석에서 별도로 표시 | |
 | 2026-11-26 | eval-v0.1 | TEST-001~017 | `evidence` 를 `{source, page}` 에서 dev 와 같은 `{page, section, quote, chunk_id, required}` 로 바꾸고 `chunk_id` 33건 채움 (질문·`expected_facts` 변경 없음) | 쪽 번호만 있어 Hit@5 측정 불가였음. **초안 작성: Claude(AI)** — 문항별 인용 쪽의 청크를 `expected_facts` 와 대조해 선택, `quote` 는 청크 본문에서 그대로 발췌(전부 부분 문자열 확인), `link_evidence.py` 독립 대조 33/33 일치. `page` 는 청크 본문 시작 쪽(idx-v3). **팀원 원문 대조 후 6절에 `verified_by` 기록 필요.** 알려진 공백: TEST-004 의 "변경일로부터 15일 이내 신고"는 본문 없는 제목에만 있어 어떤 청크에도 없음(conversion_notes 한계 L8) | |
+| 2026-11-26 | eval-v0.1 | dev 전체 / test 전체 | chunk_id·chunk_ids_all 재매핑 (208개 body 청크 ID 변경) | PDF PUA 글리프 정리(수정 13) 후 색인 idx-v4 재생성. 위치 기반 매핑. link_evidence 교차 검증 ok. gold chunk 4개 갱신: DOC-D2#bc38279e74→560f44d5f2, DOC-D2#d5c839543d→559d8bc771, DOC-D4#77e552e2ea→7e7390713d, DOC-WIDE#aae3eaab06→6cdfbe4c22 | 김선규 |
 
 ---
 
