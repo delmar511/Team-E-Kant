@@ -158,6 +158,9 @@ class Chunk(_Strict):
         default_factory=dict,
         description="자유형식, 예: 청크에서 발견된 비자 코드, 청크 인덱스, 문자 오프셋",
     )
+    section_key: str = Field(default="", description="절 단위 고유 키 (같은 절의 조각들이 공유)")
+    part: int = Field(default=1, ge=1, description="절 안에서 이 조각의 순번 (1-based)")
+    n_parts: int = Field(default=1, ge=1, description="이 절의 전체 조각 수")
 
 
 # ---------------------------------------------------------------------------

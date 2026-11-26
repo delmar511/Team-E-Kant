@@ -63,3 +63,50 @@ python experiments/run_experiment.py --configs A B --eval eval/eval-dev.json --l
 4. **Hit@5 정답**: `evidence[].chunk_id` 만 씁니다 (서종찬님 `evaluate()` 와 같음). `chunk_ids_all` 은 다른 자격 문서 청크가 섞여 있어 자격 혼동을 정답으로 칠 수 있어 뺐습니다.
 5. **`tests/test_config.py` 5개 실패**: `config.py` 오류 메시지가 한글로 바뀌었는데 테스트는 영어 문구(`circular`, `stale index` 등)를 찾습니다. 제 변경 전부터 실패합니다.
 6. **지표·채점표**: `metrics.py` 는 박태환님 담당이라 옮기지 않았습니다. `records.jsonl` 을 읽어 주시면 되고, 실행 직후 확인용 요약(상태 수, Hit@5, 응답 시간 중앙값)은 `run_experiment.py` 가 출력합니다.
+
+---
+
+## 5. 섹션 확장 컨텍스트 형식 (2026-11-26)
+
+### 배경
+
+`[prompt] expand_sections = true` 일 때 선택된 청크를 해당 절 전체(모든 조각, 순서대로)로 대체한다.
+검색 순위·청크는 그대로이고 프롬프트 구성 단계에서만 확장한다.
+
+### 프롬프트 형식 (`format_expanded`)
+
+```
+<document chunk_id="검색된_조각_ID" expanded_from="id1,id2,..." source="위치 경로 (p.N-M)">
+절 전체 본문
+</document>
+```
+
+| 속성 | 값 |
+|---|---|
+| `chunk_id` | **검색된** 조각의 ID |
+| `expanded_from` | 이 블록에 포함된 조각 ID 목록 (쉼표 구분, 순서 유지) |
+| `source` | 절 경로 + 모든 조각을 아우르는 페이지 범위 |
+
+기존 `format_context`와 달리 각 조각이 아닌 절 단위로 하나의 `<document>` 블록을 출력한다.
+
+### 인용 규칙
+
+`check_citations`는 `context_ids` (검색된 조각 ID 목록)만 허용한다. 모델이 `chunk_id` 속성에 표시된 ID를 인용하면 유효 인용으로 처리된다.
+`expanded_from`에만 있는 조각 ID를 인용하면 무효 인용(`invalid_citation_ids`)으로 처리된다.
+
+**근거**: 검색된 조각이 모델의 답을 이끌어낸 증거다. 확장으로 추가된 조각은 맥락 보완이지 별개의 근거가 아니다.
+
+### trace 필드
+
+| 키 | 설명 |
+|---|---|
+| `context_chunk_ids` | 검색에서 선택된 청크 ID (변경 없음) |
+| `expanded_chunk_ids` | 프롬프트에 실제 포함된 조각 ID (확장된 조각 포함) |
+| `expanded_chars` | 확장 후 컨텍스트 총 글자 수 |
+
+### 예산 규칙
+
+- 순위 높은 절부터 확장 시도.
+- 확장 후 총 글자 수가 `max_expanded_chars`를 넘으면 해당 절 이하는 원래 조각 그대로.
+- 검색된 청크는 절대 삭제하지 않는다.
+- 같은 `section_key`를 가진 청크가 여럿 선택됐으면 가장 순위가 높은 ID를 대표 `chunk_id`로 쓴다.

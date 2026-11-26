@@ -32,7 +32,7 @@ DEFAULT_MIN_CHARS = 20
 
 TOC_DOTS = re.compile(r'[·․⋯∙・.]{4,}')                 # 목차 점선(+쪽번호)
 NUM_PREFIX = re.compile(r'^(?:\d{1,2}\.|[가-힣]\.|[①-⑳])\s*')
-DELETED = re.compile(r'^\W*<삭제>\W*$')
+DELETED = re.compile(r'^\W*<삭\s*제>\W*$')
 
 
 def make_id(doc_id, path, text, seq):
@@ -63,6 +63,28 @@ def split_long(text):
     return parts
 
 
+def _split_long_with_pages(buf_pairs):
+    """buf_pairs: [(line, page)]. Returns [(part_text, first_line_page)]."""
+    if not buf_pairs:
+        return []
+    text = '\n'.join(l for l, _ in buf_pairs)
+    if len(text) <= MAXLEN:
+        first_page = next((pg for l, pg in buf_pairs if l.strip()), buf_pairs[0][1])
+        return [(text, first_page)]
+    parts = []
+    cur_lines, cur_page = [], None
+    for line, pg in buf_pairs:
+        if cur_page is None and line.strip():
+            cur_page = pg
+        cur_lines.append(line)
+        if len('\n'.join(cur_lines)) > MAXLEN:
+            parts.append(('\n'.join(cur_lines), cur_page))
+            cur_lines, cur_page = [], None
+    if cur_lines:
+        parts.append(('\n'.join(cur_lines), cur_page))
+    return parts
+
+
 def _is_noise(title, body):
     """접지 않을 항목: 목차 점선 줄, '<삭제>' 만 있는 항목."""
     if TOC_DOTS.search(title) or TOC_DOTS.search(body):
@@ -76,8 +98,8 @@ def _read_sections(raw):
     """본문을 제목 단위 구간 목록으로 나눈다.
 
     구간 하나 = 제목 한 줄 + 다음 제목 전까지의 본문. 제목 앞의 본문은 level 0 구간.
-    page_open = 제목 줄을 읽을 때의 쪽, page_close = 다음 제목(또는 EOF)을 읽을 때의 쪽
-    (본문 청크의 page 는 예전부터 page_close 다).
+    page_open = 제목 줄을 읽을 때의 쪽.
+    buf 는 (line, page) 튜플 목록이다. 첫 본문 줄의 쪽을 청크 page 로 쓸 수 있도록.
     """
     stack = []                     # [(제목 수준, 제목)] — 실제 중첩을 추적한다
     path0 = None
@@ -86,7 +108,6 @@ def _read_sections(raw):
     cur = {'level': 0, 'title': None, 'parent': [], 'path': None, 'page_open': None, 'buf': []}
 
     def close():
-        cur['page_close'] = page
         secs.append(cur)
 
     for line in raw.split('\n'):
@@ -117,7 +138,7 @@ def _read_sections(raw):
                    'path': [path0] + [t for _, t in stack] if level > 1 else [title],
                    'page_open': page, 'buf': []}
             continue
-        cur['buf'].append(line)
+        cur['buf'].append((line, page))   # (본문 줄, 현재 쪽)
     close()
     return secs
 
@@ -149,6 +170,8 @@ def parse(md_path, bodyless=DEFAULT_BODYLESS_MODE, min_chars=DEFAULT_MIN_CHARS):
     out = []
     seen_loc = {}          # 경로 -> 지금까지 몇 번 나왔는지 (본문 청크 전용)
     seen_fold = {}         # 경로 -> 묶음 청크 순번 (묶음 청크 전용)
+    seen_section = {}      # 경로 -> 완성된 절 발생 횟수 (section_key 계산용)
+    seen_section_fold = {} # 경로 -> 완성된 묶음 절 발생 횟수
 
     def base(loc_shown, page, path_for_codes, part, chunk_id, kind):
         return {
@@ -164,14 +187,32 @@ def parse(md_path, bodyless=DEFAULT_BODYLESS_MODE, min_chars=DEFAULT_MIN_CHARS):
             'chunk_kind': kind,
         }
 
-    def emit_body(path, page, text):
+    def emit_body(path, buf_pairs):
         loc = ' > '.join([p for p in path if p])
-        for part in split_long(text):
+        parts = _split_long_with_pages(buf_pairs)
+        # If the last split fragment is too short, absorb it into the previous part.
+        if len(parts) > 1:
+            last_text, _ = parts[-1]
+            if len(re.sub(r'\s', '', last_text)) < min_chars:
+                prev_text, prev_page = parts[-2]
+                parts = parts[:-2] + [(prev_text + '\n' + last_text, prev_page)]
+        # section_key: 절 단위 고유 키. occurrence 는 이 경로의 몇 번째 발생인지.
+        # location 에서 " (n)" 접미사를 제거하는 방식을 쓰지 않는다 — 같은 경로가 두 군데에
+        # 진짜 반복될 때(예: F-4 p.601·p.618) 잘못 합쳐지는 것을 막기 위해서다.
+        occurrence = seen_section.get(loc, 0)
+        seen_section[loc] = occurrence + 1
+        section_key = hashlib.sha1(f'{doc_id}|{loc}|{occurrence}'.encode('utf-8')).hexdigest()[:10]
+        n_parts = len(parts)
+        for part_idx, (part_text, part_page) in enumerate(parts):
             seq = seen_loc.get(loc, 0)
             seen_loc[loc] = seq + 1
             # 같은 경로가 두 번 이상이면 인용할 때 구분되도록 순번을 붙인다
             loc_shown = loc if seq == 0 else f'{loc} ({seq + 1})'
-            out.append(base(loc_shown, page, path, part, make_id(doc_id, path, part, seq), 'body'))
+            chunk = base(loc_shown, part_page, path, part_text, make_id(doc_id, path, part_text, seq), 'body')
+            chunk['section_key'] = section_key
+            chunk['part'] = part_idx + 1
+            chunk['n_parts'] = n_parts
+            out.append(chunk)
 
     def emit_fold(items):
         if len(items) >= 2:
@@ -180,12 +221,23 @@ def parse(md_path, bodyless=DEFAULT_BODYLESS_MODE, min_chars=DEFAULT_MIN_CHARS):
             path = items[0]['path']
         loc = ' > '.join([p for p in path if p])
         text = '\n'.join(i['text'] for i in items)
-        for part in split_long(text):
+        if len(re.sub(r'\s', '', text)) < min_chars:
+            return
+        fold_parts = split_long(text)
+        fold_occurrence = seen_section_fold.get(loc, 0)
+        seen_section_fold[loc] = fold_occurrence + 1
+        section_key = hashlib.sha1(f'{doc_id}|{loc}|fold|{fold_occurrence}'.encode('utf-8')).hexdigest()[:10]
+        n_parts = len(fold_parts)
+        for part_idx, part in enumerate(fold_parts):
             n = seen_fold.get(loc, 0)
             seen_fold[loc] = n + 1
             loc_shown = loc if n == 0 else f'{loc} ({n + 1})'
-            out.append(base(loc_shown, items[0]['page'], path, part,
-                            make_id(doc_id, path, part, f'h{n}'), 'fold'))
+            chunk = base(loc_shown, items[0]['page'], path, part,
+                         make_id(doc_id, path, part, f'h{n}'), 'fold')
+            chunk['section_key'] = section_key
+            chunk['part'] = part_idx + 1
+            chunk['n_parts'] = n_parts
+            out.append(chunk)
 
     pending = []                         # 아직 묶음에 모으는 중인 항목들
 
@@ -195,10 +247,17 @@ def parse(md_path, bodyless=DEFAULT_BODYLESS_MODE, min_chars=DEFAULT_MIN_CHARS):
             pending.clear()
 
     for i, s in enumerate(secs):
-        body = '\n'.join(s['buf']).strip()
+        body = '\n'.join(l for l, _ in s['buf']).strip()
         if len(re.sub(r'\s', '', body)) >= min_chars:    # 충분한 본문 -> 본문 청크
             flush()
-            emit_body(s['path'], s['page_close'], body)
+            # buf_pairs stripped of leading/trailing blank lines but pages preserved
+            pairs = s['buf']
+            # strip leading/trailing blank-line pairs to match body.strip()
+            while pairs and not pairs[0][0].strip():
+                pairs = pairs[1:]
+            while pairs and not pairs[-1][0].strip():
+                pairs = pairs[:-1]
+            emit_body(s['path'], pairs)
             continue
         # 짧거나 없는 본문
         if bodyless != 'fold' or s['level'] < 2:         # 예전 동작: 버린다 (level 0/1 은 늘 버린다)

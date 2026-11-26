@@ -11,7 +11,9 @@ retrieve.py 의 청크 dict 는 schemas.Chunk 로 바꾼다 (location 문자열 
 """
 import os
 import sys
+import threading
 import time
+from collections import defaultdict
 from pathlib import Path
 
 from config import ConfigError, RetrievalMode
@@ -27,7 +29,10 @@ def to_chunk(c: dict) -> Chunk:
     page = int(c.get("page") or 1)
     return Chunk(chunk_id=c["chunk_id"], doc_id=c["doc_id"], text=c["text"],
                  location=Location(page_start=page, page_end=page, section_path=section),
-                 metadata={k: c[k] for k in _META_KEYS if k in c})
+                 metadata={k: c[k] for k in _META_KEYS if k in c},
+                 section_key=c.get("section_key", ""),
+                 part=c.get("part", 1),
+                 n_parts=c.get("n_parts", 1))
 
 
 def to_candidates(ranked, chunks, source, component, top_k, extra=None):
@@ -54,7 +59,7 @@ class ManualRetriever:
         self.R = R
         self.r = cfg.retrieval
         self.scorer = None
-        self.last_rerank_ms = None  # agent 가 latency.rerank_ms 로 기록
+        self._tls = threading.local()  # per-thread last_rerank_ms (병렬 실행 시 경쟁 방지)
         if self.r.mode is RetrievalMode.HYBRID_RERANK:
             from rerank import CrossEncoderScorer
             self.scorer = CrossEncoderScorer(self.r.reranker.model, self.r.reranker.max_length)
@@ -69,9 +74,25 @@ class ManualRetriever:
                             ("[index] embedding_model", cfg.index.embedding_model)):
             if name and name != "TBD" and name != self.model:
                 raise ConfigError(f"벡터 색인은 {self.model} 로 만들었는데 {where} 는 {name} 입니다")
+        # 섹션 인덱스: section_key -> 조각 목록(part 순서). 프롬프트 확장에 쓴다.
+        _sk_idx: dict = defaultdict(list)
+        for raw in self.chunks.values():
+            sk = raw.get("section_key")
+            if sk:
+                _sk_idx[sk].append(raw)
+        self.section_index: dict = {sk: sorted(pieces, key=lambda p: p.get("part", 1))
+                                    for sk, pieces in _sk_idx.items()}
         # 워밍업: 임베딩 모델·형태소 분석기·재정렬기 적재(첫 호출 수 초)가 첫 문항의 응답 시간에 섞이지 않게 한다
         self(WARMUP_QUERY)
-        self.last_rerank_ms = None
+        self._tls.last_rerank_ms = None
+
+    @property
+    def last_rerank_ms(self):
+        return getattr(self._tls, "last_rerank_ms", None)
+
+    @last_rerank_ms.setter
+    def last_rerank_ms(self, v):
+        self._tls.last_rerank_ms = v
 
     def __call__(self, query):
         R, r = self.R, self.r

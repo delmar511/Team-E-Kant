@@ -492,3 +492,84 @@ PUA 정리로 임베딩 품질이 약간 개선됨. Hit@5 변화 없음.
 
 - U+F081–F083 → ①②③ 는 PDF 없이 맥락 추정만으로 결정. PDF 접근 시 검증 필요.
 - 그 외 다른 변환 문제(날짜 형식 깨짐, 표 칸 순서 등)는 이 수정 범위 밖. 별도 처리 필요.
+
+---
+
+## 수정 14 — 헤딩 배치 적용(apply_placement) + chunk.py page 추적 완성 (2026-11-26)
+
+### 작업 내용
+
+1. **배치 적용**: `docs/corpus_fixes/placement_v1.jsonl` (363건, 34개 문서, 전부 accepted) 를
+   `src/ingest/apply_placement.py --write` 로 `docs/corpus/` 에 반영했다.
+   invariants 통과. 변경된 문서 34개.
+
+2. **청크 재생성**: 1,881 -> 1,879개. chunk_id 변동 431개(기준 450 이내).
+   평가셋 gold chunk 4개 재매핑:
+
+   | 기존 ID | 새 ID |
+   |---|---|
+   | `DOC-D10#635698a1ab` | `DOC-D10#76ec6873c4` |
+   | `DOC-D4#4476057324` | `DOC-D4#2953f80a1f` |
+   | `DOC-D4#7bf12122ce` | `DOC-D4#b76125df38` |
+   | `DOC-F3#8cab3dafbf` | `DOC-F3#3f179baa9e` |
+
+3. **chunk.py page 추적 완성(수정 12 미완 부분)**: `buf` 를 `(line, page)` 튜플 목록으로
+   바꾸고, `_split_long_with_pages()` 함수를 추가해 본문 청크(쪼갠 조각 포함)의 `page` 를
+   첫 본문 줄의 쪽으로 기록한다. 이전에는 구간이 끝나는 쪽(`page_close`)을 썼다.
+   - `chunk_id` · `text` 불변 (page 는 해시에 들어가지 않음)
+   - `page` 변경 청크: 604개 (추정, 수정 12 설명 기준 — 이번 수정 범위와 겹침)
+
+4. **BM25 색인 idx-v5 재생성**: 1,879청크, 39문서.
+
+5. **병합 충돌 해소**: `tests/test_chunk.py` 에서 HEAD 의 page 테스트와 main 의
+   fold/drop 테스트를 하나로 합쳤다.
+
+6. **평가셋 데이터 정정**: `eval/eval-test.json` 에서 잘못 연결된 `DOC-A1#f137905102`
+   (외교 A-1 청크, 쪽 14) 를 D-2/D-10 근거 항목 4건에서 null 로 초기화했다.
+   원인: 이전 link_evidence 실행 오류 (pre-existing). `chunk_id` 를 null 로 돌려
+   향후 올바른 청크로 다시 연결할 수 있도록 했다.
+
+### 결과
+
+- 테스트: 120 passed, 1 skipped
+- link_evidence (dev): 34/36 ok (기존 not_found 1·spans_multiple 1 그대로)
+- BM25 색인: idx-v5
+
+### 재현
+
+```bash
+python src/ingest/apply_placement.py --ops docs/corpus_fixes/placement_v1.jsonl --corpus docs/corpus --write
+python src/ingest/chunk.py "docs/corpus/*.md" > data/chunks.jsonl
+python src/build_index.py --chunks data/chunks.jsonl --out data/index --version idx-v5
+```
+
+## 수정 15 — `section_key` / `part` / `n_parts` 필드 추가 (2026-11-26)
+
+### 배경
+
+1,200자를 넘는 항목은 `chunk.py`에서 연속된 조각으로 나뉜다. 같은 절의 조각들이 별개 청크로 존재했는데, 프롬프트에서 이를 하나의 절로 합치려면 어떤 청크가 같은 절에서 왔는지 알아야 한다.
+
+### 추가 필드
+
+| 필드 | 위치 | 설명 |
+|---|---|---|
+| `section_key` | `chunk.py` `emit_body` / `emit_fold` | 절 단위 고유 키. `sha1("{doc_id}|{loc}|{occurrence}")[:10]`. `location`의 ` (n)` 접미사를 제거하는 방식을 쓰지 않는다 — 같은 경로가 여러 번 등장할 때(예: F-4 p.601·p.618) 잘못 합쳐지는 것을 막기 위해서다. |
+| `part` | 위와 같음 | 절 안에서 이 조각의 순번 (1-based) |
+| `n_parts` | 위와 같음 | 이 절의 전체 조각 수 |
+
+### 불변 보장
+
+`chunk_id` · `text` · `location` · `page` 는 모두 그대로다. 1,879개 전체 대조 완료.
+
+### BM25 색인 재생성
+
+`data/chunks.jsonl` 내용이 바뀌어 `config.index_version` 이 바뀐다 → `idx-f4bdf56fd36e`. BM25 색인 재생성.
+`chunk_ids.json` 순서 불변 (1,879개 그대로). 벡터 재생성 불필요.
+
+### 재현
+
+```bash
+python src/ingest/chunk.py "docs/corpus/*.md" > data/chunks.jsonl
+# index_version 은 config.index_version(cfg) 로 계산 → idx-f4bdf56fd36e
+python src/build_index.py --chunks data/chunks.jsonl --out data/index --version idx-f4bdf56fd36e
+```

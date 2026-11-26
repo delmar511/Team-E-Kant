@@ -12,6 +12,7 @@ __pycache__/
 data/*
 !data/.gitkeep
 !data/chunks.jsonl
+results/runs/
 *.faiss
 *.index
 *.pkl
