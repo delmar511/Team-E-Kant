@@ -27,3 +27,5 @@ docs/corpus/raw/
 # OS
 .DS_Store
 Thumbs.db
+
+data/index-noprotect/
