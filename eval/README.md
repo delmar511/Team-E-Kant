@@ -179,6 +179,7 @@
 | --- | --- | --- | --- | --- | --- |
 | YYYY-MM-DD | eval-v0.1 | 전체 | 초안 작성 | - | |
 | 2026-11-25 | eval-v0.1 | DEV-009 | `reference_evidence[0]`(p.3 유의사항) `chunk_id` null -> `DOC-INTRO#5f777614b7` | 1~13쪽 미색인 해소 (색인 idx-v2). 다른 문항 `chunk_id` 변경 없음 | |
+| 2026-11-26 | eval-v0.1 | dev 전체 / test 전체 | chunk_id·chunk_ids_all 재매핑 (208개 body 청크 ID 변경) | PDF PUA 글리프 정리(수정 13) 후 색인 idx-v4 재생성. 위치 기반 매핑. link_evidence 교차 검증 ok. gold chunk 4개 갱신: DOC-D2#bc38279e74→560f44d5f2, DOC-D2#d5c839543d→559d8bc771, DOC-D4#77e552e2ea→7e7390713d, DOC-WIDE#aae3eaab06→6cdfbe4c22 | 김선규 |
 
 ---
 

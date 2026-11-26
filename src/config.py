@@ -78,6 +78,13 @@ class IndexConfig(_Strict):
     embedding_model: str
     bm25_tokenizer: str = Field(description="예: 'kiwi', 'mecab', 'whitespace'")
     index_dir: str = "index"
+    bodyless_heading_mode: Literal["drop", "fold"] = Field(
+        default="fold",
+        description="본문 없는 제목 처리: 'drop'=버림, 'fold'=연속된 본문 없는 형제 제목을 한 청크로 합침",
+    )
+    min_chunk_chars: int = Field(
+        default=20, gt=0, description="공백 제외 글자 수가 이보다 적은 섹션은 청크로 만들지 않음"
+    )
 
     @model_validator(mode="after")
     def _overlap_lt_size(self) -> "IndexConfig":
