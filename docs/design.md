@@ -9,7 +9,7 @@
 | 항목 | 값 | 확정일 |
 |---|---|---|
 | 문서 세트 버전 | `[기입]` | |
-| 색인 버전 | idx-v2 (DOC-INTRO 추가, 1,653 청크) | |
+| 색인 버전 | idx-v3 (청크 `page` = 본문 시작 쪽, 1,653 청크. conversion_notes 수정 12) | 2026-11-26 |
 | 임베딩 모델 | `nlpai-lab/KURE-v1` (1024차원, 로컬) | 2026-11-25 |
 | Reranker 모델 | `BAAI/bge-reranker-v2-m3` (cross-encoder, 로컬) | 2026-11-25 |
 | 평가셋 버전 | dev v1.0 / test v1.0 | |

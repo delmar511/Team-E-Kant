@@ -45,15 +45,18 @@ def parse(md_path):
     stack = []                     # [(제목 수준, 제목)] — 실제 중첩을 추적한다
     path = [fm.get('title', '')]
     page = None
+    # buf 는 (줄, 그 줄이 속한 쪽) 쌍. 청크의 page 는 첫 본문 줄의 쪽이다.
+    # (예전에는 emit 시점의 쪽 = 구간이 끝나는 쪽을 넣어, 여러 쪽에 걸친 구간이
+    #  끝 쪽으로 기록됐다. 예: D-2 '라. 제출서류' 는 p.45 에서 시작하는데 p.55)
     buf, out = [], []
     seen_loc = {}          # 경로 -> 지금까지 몇 번 나왔는지
 
     def emit():
-        text = '\n'.join(buf).strip()
+        text = '\n'.join(line for line, _ in buf).strip()
         if len(re.sub(r'\s', '', text)) < 20:        # 너무 짧은 조각은 버린다
             return
         loc = ' > '.join([p for p in path if p])
-        for part in split_long(text):
+        for part, part_page in split_long(buf):
             seq = seen_loc.get(loc, 0)
             seen_loc[loc] = seq + 1
             # 같은 경로가 두 번 이상이면 인용할 때 구분되도록 순번을 붙인다
@@ -65,23 +68,41 @@ def parse(md_path):
                 'doc_version': fm.get('version', ''),
                 'source': fm.get('source', ''),
                 'location': loc_shown,
-                'page': page,
+                'page': part_page,
                 'visa_codes': sorted(set(CODE.findall(' '.join(path) + ' ' + part))),
                 'text': part,
             })
 
-    def split_long(text):
+    def first_page(rows):
+        """조각의 첫 본문(공백 아닌) 줄이 속한 쪽."""
+        for line, pg in rows:
+            if line.strip():
+                return pg
+        return rows[0][1] if rows else page
+
+    def split_long(rows):
+        """rows: [(줄, 쪽)] -> [(조각 본문, 조각 첫 줄의 쪽)]. 본문은 예전과 같게 자른다."""
+        rows = list(rows)
+        # 앞뒤 빈 줄 제거 (예전 text.strip() 과 같은 효과. 청크 본문·ID 를 바꾸지 않기 위함)
+        while rows and not rows[0][0].strip():
+            rows.pop(0)
+        while rows and not rows[-1][0].strip():
+            rows.pop()
+        text = '\n'.join(line for line, _ in rows).strip()
+        lines = text.split('\n')                 # strip 은 첫·끝 줄 안쪽 공백만 지우므로 줄 수는 같다
+        assert len(lines) == len(rows)
+        rows = list(zip(lines, (pg for _, pg in rows)))
         if len(text) <= MAXLEN:
-            return [text]
+            return [(text, first_page(rows))]
         parts, cur = [], []
-        for line in text.split('\n'):
-            cur.append(line)
-            if len('\n'.join(cur)) > MAXLEN:
-                parts.append('\n'.join(cur))
+        for row in rows:
+            cur.append(row)
+            if len('\n'.join(line for line, _ in cur)) > MAXLEN:
+                parts.append(cur)
                 cur = []
         if cur:
-            parts.append('\n'.join(cur))
-        return parts
+            parts.append(cur)
+        return [('\n'.join(line for line, _ in p), first_page(p)) for p in parts]
 
     for line in raw.split('\n'):
         pg = re.match(r'^<!-- page: (\d+) -->$', line)
@@ -108,7 +129,7 @@ def parse(md_path):
                 stack.append((level, title))
                 path = [path[0]] + [t for _, t in stack]
             continue
-        buf.append(line)
+        buf.append((line, page))
     if buf:
         emit()
     return out

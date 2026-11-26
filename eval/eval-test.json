@@ -17,12 +17,11 @@
     ],
     "evidence": [
       {
-        "source": "261116_체류민원_자격별_안내_매뉴얼-compressed.pdf",
-        "page": 90
-      },
-      {
-        "source": "261116_체류민원_자격별_안내_매뉴얼-compressed.pdf",
-        "page": 91
+        "page": 90,
+        "section": "일반연수(D-4) > 체류기간 연장허가 > 1. 어학연수생(D-4-1, D-4-7)에 대한 체류기간 연장허가 > 나. 제출서류",
+        "quote": "① 신청서 (별지 34호 서식), 여권, 외국인등록증, 수수료 / ④ 재정입증 서류(국내 본인계좌 예치금만 인정) / ⑤ 모집요강 (연수일정 명시) 또는 연수계획서 (어학연수생에 한함)",
+        "chunk_id": "DOC-D4#5d468766cc",
+        "required": true
       }
     ],
     "no_answer_reason": null,
@@ -49,12 +48,25 @@
     ],
     "evidence": [
       {
-        "source": "261116_체류민원_자격별_안내_매뉴얼-compressed.pdf",
-        "page": 37
+        "page": 37,
+        "section": "유학(D-2) > 시간제취업 활동 허가 > 나. 대상",
+        "quote": "일정 수준의 한국어 능력을 보유하고 유학 본연의 활동에 전념하며, / 어학연수(D-4-1, D-4-7)자격 및 방문학생(D-2-8)자격은 변경일(사증소지자는",
+        "chunk_id": "DOC-D2#57403cd667",
+        "required": true
       },
       {
-        "source": "261116_체류민원_자격별_안내_매뉴얼-compressed.pdf",
-        "page": 39
+        "page": 39,
+        "section": "유학(D-2) > 시간제취업 활동 허가 > 라. 허가 기준 등",
+        "quote": "신청일 기준 직전학기 평균 성적이 C학점(2.0) 미만인 자로 학업과 / 신청일 기준 최근 3개월 이내 시간제 취업 허가를 받지 않았거나 허가",
+        "chunk_id": "DOC-D2#9ad898768c",
+        "required": true
+      },
+      {
+        "page": 37,
+        "section": "유학(D-2) > 시간제취업 활동 허가 > 다. 허용범위",
+        "quote": "<한국어 능력별, 학위과정별 허용시간(‘23. 7. 시행)> / ※ 영어트랙 과정 : 학년에 관계 없이 TOEFL 530(CBT 197, iBT 71), IELTS 5.5, CEFR B2,",
+        "chunk_id": "DOC-D2#a66bd6120e",
+        "required": true
       }
     ],
     "no_answer_reason": null,
@@ -83,24 +95,32 @@
     ],
     "evidence": [
       {
-        "source": "261116_체류민원_자격별_안내_매뉴얼-compressed.pdf",
-        "page": 145
+        "page": 145,
+        "section": "구직(D-10) > 체류자격 변경허가 > 가. 허용대상",
+        "quote": "학사 이상 학위과정 유학생(D-2)으로 졸업하여 학위 취득한 후, / ※ 최초 구직(D-10-1) 체류기간 1년 부여, 연장 시에는 점수제 적용",
+        "chunk_id": "DOC-D10#8d9ec5c151",
+        "required": true
       },
       {
-        "source": "261116_체류민원_자격별_안내_매뉴얼-compressed.pdf",
-        "page": 147
+        "page": 147,
+        "section": "구직(D-10) > 체류자격 변경허가 > 나. 제한대상",
+        "quote": "신청일로부터 5년 이내에 국내법을 위반하여 금고 이상의 형을 선고 / 신청일로부터 3년 이내에 국내법을 위반하여 300만 원 이상의 벌금형을",
+        "chunk_id": "DOC-D10#cf0f7f8716",
+        "required": true
       },
       {
-        "source": "261116_체류민원_자격별_안내_매뉴얼-compressed.pdf",
-        "page": 149
+        "page": 149,
+        "section": "구직(D-10) > 체류자격 변경허가 > 다. 제출서류",
+        "quote": "ⅰ) 유학생 졸업 후 최초 구직변경 / 국내 정규 대학* 전문학사 이상 학위증 (또는 졸업증명서)",
+        "chunk_id": "DOC-D10#f37ea5459c",
+        "required": true
       },
       {
-        "source": "261116_체류민원_자격별_안내_매뉴얼-compressed.pdf",
-        "page": 150
-      },
-      {
-        "source": "261116_체류민원_자격별_안내_매뉴얼-compressed.pdf",
-        "page": 153
+        "page": 153,
+        "section": "구직(D-10) > 체류자격 변경허가 > 라. 신청요령",
+        "quote": "신분이 변동(예정 포함)되는 즉시 체류지 관할 청 등에 신청",
+        "chunk_id": "DOC-D10#d49c222a0d",
+        "required": true
       }
     ],
     "no_answer_reason": null,
@@ -127,16 +147,18 @@
     ],
     "evidence": [
       {
-        "source": "261116_체류민원_자격별_안내_매뉴얼-compressed.pdf",
-        "page": 40
+        "page": 45,
+        "section": "유학(D-2) > 외국인등록 > 2. 등록사항 변경신고 > 라. 제출서류",
+        "quote": "학교 변경 (동급 학위과정, 학위과정 유학생(D-2-1~D-2-4)에 한함) / 학교 변경은 졸업 전의 변경을 의미(졸업생은 신입학 대상으로 학교 변경 대상 아님) / - 표준입학허가서(변경된 학교)",
+        "chunk_id": "DOC-D2#de06593beb",
+        "required": true
       },
       {
-        "source": "261116_체류민원_자격별_안내_매뉴얼-compressed.pdf",
-        "page": 45
-      },
-      {
-        "source": "261116_체류민원_자격별_안내_매뉴얼-compressed.pdf",
-        "page": 46
+        "page": 45,
+        "section": "유학(D-2) > 외국인등록 > 2. 등록사항 변경신고 > 가. (신고사항) 다음 각 호 어느 하나에 해당하는 사항이 변경되었을 때",
+        "quote": "학교 변경 (명칭 변경 포함)",
+        "chunk_id": "DOC-D2#553a1615c2",
+        "required": false
       }
     ],
     "no_answer_reason": null,
@@ -161,16 +183,32 @@
     ],
     "evidence": [
       {
-        "source": "261116_체류민원_자격별_안내_매뉴얼-compressed.pdf",
-        "page": 83
+        "page": 90,
+        "section": "일반연수(D-4) > 체류기간 연장허가 > 1. 어학연수생(D-4-1, D-4-7)에 대한 체류기간 연장허가 > 가. 기본원칙",
+        "quote": "어학연수생이 학교를 변경하고자 하는 경우 출국 후 해당 대학으로 / - 토픽 3급(KIIP) 이상 성적표를 소지한 자로서 학교변경에 정당한 사유가",
+        "chunk_id": "DOC-D4#77e552e2ea",
+        "required": true
       },
       {
-        "source": "261116_체류민원_자격별_안내_매뉴얼-compressed.pdf",
-        "page": 90
+        "page": 94,
+        "section": "일반연수(D-4) > 외국인등록 > 5. 외국인등록사항 변경신고 > 가. 신고사항 : 성명, 성별, 생년월일 및 국적, 여권의 번호·발급일자·유효기간",
+        "quote": "다 . 신고기한 : 변경일로부터 15일 이내 신고",
+        "chunk_id": "DOC-D4#36c97c0cd4",
+        "required": true
       },
       {
-        "source": "261116_체류민원_자격별_안내_매뉴얼-compressed.pdf",
-        "page": 94
+        "page": 94,
+        "section": "일반연수(D-4) > 외국인등록 > 5. 외국인등록사항 변경신고 > 라. 제출서류",
+        "quote": "① 외국인등록사항변경신고서, 여권 및 외국인등록증, 수수료 없음 / ② 재학증명서 및 학교 제적증명서(학교변경의 경우)",
+        "chunk_id": "DOC-D4#1ba08ec5c2",
+        "required": true
+      },
+      {
+        "page": 83,
+        "section": "일반연수(D-4) > 근무처의 변경·추가",
+        "quote": "경우에는 법 제35조의 외국인등록사항 변경신고를 받아 처리(시행규칙",
+        "chunk_id": "DOC-D4#bcd1e19d3a",
+        "required": false
       }
     ],
     "no_answer_reason": null,
@@ -192,8 +230,11 @@
     ],
     "evidence": [
       {
-        "source": "261116_체류민원_자격별_안내_매뉴얼-compressed.pdf",
-        "page": 43
+        "page": 42,
+        "section": "유학(D-2) > 체류기간 연장허가 > 가. 기본원칙",
+        "quote": "- (학사) 입학 후 최대 6년(단, 5년제 학사의 경우 최대 7년)",
+        "chunk_id": "DOC-D2#d5c839543d",
+        "required": true
       }
     ],
     "no_answer_reason": null,
@@ -216,8 +257,11 @@
     ],
     "evidence": [
       {
-        "source": "261116_체류민원_자격별_안내_매뉴얼-compressed.pdf",
-        "page": 35
+        "page": 35,
+        "section": "유학(D-2) > 자격 해당자 및 활동범위",
+        "quote": "(D-2) D-2-5 연구과정 / 연구를 하고자 하는 외국인으로서 유학(D-2) 및 어학연수(D-4-1, D-4-7)",
+        "chunk_id": "DOC-D2#8e0e7dae3e",
+        "required": true
       }
     ],
     "no_answer_reason": null,
@@ -244,12 +288,25 @@
     ],
     "evidence": [
       {
-        "source": "261116_체류민원_자격별_안내_매뉴얼-compressed.pdf",
-        "page": 38
+        "page": 37,
+        "section": "유학(D-2) > 시간제취업 활동 허가 > 다. 허용범위",
+        "quote": "(1) 제한분야 / (특수형태근로종사자의 활동) 택배기사, 배달대행업체 라이더, 대리 / (2) 예외적 허용",
+        "chunk_id": "DOC-D2#a66bd6120e",
+        "required": true
       },
       {
-        "source": "261116_체류민원_자격별_안내_매뉴얼-compressed.pdf",
-        "page": 40
+        "page": 38,
+        "section": "유학(D-2) > 시간제취업 활동 허가 > 다. 허용범위 (2)",
+        "quote": "③ 방학 기간 중 학위과정 유학생의 전문분야(E-1~E-7) 인턴 활동",
+        "chunk_id": "DOC-D2#72e897938b",
+        "required": true
+      },
+      {
+        "page": 39,
+        "section": "유학(D-2) > 시간제취업 활동 허가 > 사. 시간제 취업 허가 위반자 처리 기준",
+        "quote": "※ 제한업종: 단란주점·노래연습장 등 유흥업소, 전문 분야(E-1~E-7) 활동, 비전문",
+        "chunk_id": "DOC-D2#20b4b050be",
+        "required": false
       }
     ],
     "no_answer_reason": null,
@@ -274,12 +331,18 @@
     ],
     "evidence": [
       {
-        "source": "261116_체류민원_자격별_안내_매뉴얼-compressed.pdf",
-        "page": 36
+        "page": 36,
+        "section": "유학(D-2) > 체류자격외 활동 > 2. 과학기술연구 분야 학생연구원으로의 자격외 활동 특례",
+        "quote": "- 학생(D-2)의 일반 기업(대학 산학협력단 포함) 또는 단체의 연구원으로 / (제출서류) 고용계약서, 연구원의 사업자등록증 사본, 수수료",
+        "chunk_id": "DOC-D2#bc38279e74",
+        "required": true
       },
       {
-        "source": "261116_체류민원_자격별_안내_매뉴얼-compressed.pdf",
-        "page": 40
+        "page": 40,
+        "section": "유학(D-2) > 시간제취업 활동 허가 > 아. 유학생(D-2)의 수익적 연구 활동",
+        "quote": "ⅱ) 학업과 무관한 연구 · 인턴 참여: 체류자격외활동허가(E-3) 필요",
+        "chunk_id": "DOC-D2#aff31138d2",
+        "required": true
       }
     ],
     "no_answer_reason": null,
@@ -291,7 +354,7 @@
   {
     "id": "TEST-010",
     "split": "test",
-    "type": "false_premise",
+    "type": "direct",
     "visa": [
       "D-4"
     ],
@@ -303,12 +366,18 @@
     ],
     "evidence": [
       {
-        "source": "261116_체류민원_자격별_안내_매뉴얼-compressed.pdf",
-        "page": 37
+        "page": 37,
+        "section": "유학(D-2) > 시간제취업 활동 허가 > 나. 대상",
+        "quote": "어학연수(D-4-1, D-4-7)자격 및 방문학생(D-2-8)자격은 변경일(사증소지자는",
+        "chunk_id": "DOC-D2#57403cd667",
+        "required": true
       },
       {
-        "source": "261116_체류민원_자격별_안내_매뉴얼-compressed.pdf",
-        "page": 39
+        "page": 39,
+        "section": "유학(D-2) > 시간제취업 활동 허가 > 바. 시간제 취업허가의 특례(허가를 받지 않아도 되는 대상)",
+        "quote": "유학자격의 본질적 사항을 침해하지 아니하는 범위 내에서 일시적",
+        "chunk_id": "DOC-D2#5898489b5a",
+        "required": true
       }
     ],
     "no_answer_reason": null,
@@ -331,8 +400,11 @@
     ],
     "evidence": [
       {
-        "source": "261116_체류민원_자격별_안내_매뉴얼-compressed.pdf",
-        "page": 40
+        "page": 40,
+        "section": "유학(D-2) > 시간제취업 활동 허가 > 아. 유학생(D-2)의 수익적 연구 활동",
+        "quote": "(소속대학 내 연구활동) 대학 및 산학협력단으로부터 연구 수당을 / ⅰ) 학업과 연계된 연구 · 인턴 참여: 시간제취업허가 면제",
+        "chunk_id": "DOC-D2#aff31138d2",
+        "required": true
       }
     ],
     "no_answer_reason": null,
@@ -357,8 +429,11 @@
     ],
     "evidence": [
       {
-        "source": "261116_체류민원_자격별_안내_매뉴얼-compressed.pdf",
-        "page": 44
+        "page": 44,
+        "section": "유학(D-2) > 재입국허가",
+        "quote": "외국인등록을 한 외국인 유학생이 출국한 날로부터 1년 이내에 재입국 / 하는 경우에는 신청에 의하여 복수재입국 허가하고, 재입국허가 수수료 징구",
+        "chunk_id": "DOC-D2#b4b385d159",
+        "required": true
       }
     ],
     "no_answer_reason": null,
@@ -380,8 +455,11 @@
     ],
     "evidence": [
       {
-        "source": "261116_체류민원_자격별_안내_매뉴얼-compressed.pdf",
-        "page": 38
+        "page": 38,
+        "section": "유학(D-2) > 시간제취업 활동 허가 > 다. 허용범위 (2)",
+        "quote": "(3) 장소변경 / 고용주를 달리하여 근무장소가 변경되는 경우에는 사전에 새로이 시간제",
+        "chunk_id": "DOC-D2#72e897938b",
+        "required": true
       }
     ],
     "no_answer_reason": null,
@@ -407,16 +485,25 @@
     ],
     "evidence": [
       {
-        "source": "261116_체류민원_자격별_안내_매뉴얼-compressed.pdf",
-        "page": 43
+        "page": 43,
+        "section": "유학(D-2) > 체류기간 연장허가 > 나. 세부심사 기준",
+        "quote": "- 재정입증 서류 생략(인증대학 장관 고시 국가 및 중점 관리 국가 국민 제외) / * 베트남 어학연수생은 재정능력 심사기준 특례 적용(일반대학 이하)",
+        "chunk_id": "DOC-D2#79eeda1ada",
+        "required": true
       },
       {
-        "source": "261116_체류민원_자격별_안내_매뉴얼-compressed.pdf",
-        "page": 44
+        "page": 44,
+        "section": "유학(D-2) > 체류기간 연장허가 > 다. 제출서류",
+        "quote": "학업을 정상적으로 수행하고 있음을 입증하는 서류 / 재정입증 서류",
+        "chunk_id": "DOC-D2#94bd3000d6",
+        "required": true
       },
       {
-        "source": "261116_체류민원_자격별_안내_매뉴얼-compressed.pdf",
-        "page": 91
+        "page": 90,
+        "section": "일반연수(D-4) > 체류기간 연장허가 > 1. 어학연수생(D-4-1, D-4-7)에 대한 체류기간 연장허가 > 나. 제출서류",
+        "quote": "④ 재정입증 서류(국내 본인계좌 예치금만 인정)",
+        "chunk_id": "DOC-D4#5d468766cc",
+        "required": true
       }
     ],
     "no_answer_reason": null,
@@ -443,8 +530,11 @@
     ],
     "evidence": [
       {
-        "source": "261116_체류민원_자격별_안내_매뉴얼-compressed.pdf",
-        "page": 43
+        "page": 42,
+        "section": "유학(D-2) > 체류기간 연장허가 > 가. 기본원칙",
+        "quote": "- 연구유학생은 2년을 초과하여 체류할 수 없음(1회 부여할 수 있는 체류 / 연장 시: 2년 이내에서 3월말 또는 9월말까지 허가 / 유학활동 종료자 등 체류기간 연장 특례 상한",
+        "chunk_id": "DOC-D2#d5c839543d",
+        "required": true
       }
     ],
     "no_answer_reason": null,
@@ -468,8 +558,18 @@
     ],
     "evidence": [
       {
-        "source": "261116_체류민원_자격별_안내_매뉴얼-compressed.pdf",
-        "page": 37
+        "page": 37,
+        "section": "유학(D-2) > 시간제취업 활동 허가 > 나. 대상",
+        "quote": "- 유학(D-2) 체류자격 중 세부 체류자격 D-2-1~D-2-4, D-2-6, D-2-7 해당자 / 어학연수(D-4-1, D-4-7)자격 및 방문학생(D-2-8)자격은 변경일(사증소지자는",
+        "chunk_id": "DOC-D2#57403cd667",
+        "required": true
+      },
+      {
+        "page": 37,
+        "section": "유학(D-2) > 시간제취업 활동 허가 > 다. 허용범위",
+        "quote": "<한국어 능력별, 학위과정별 허용시간(‘23. 7. 시행)>",
+        "chunk_id": "DOC-D2#a66bd6120e",
+        "required": true
       }
     ],
     "no_answer_reason": null,
@@ -493,8 +593,11 @@
     ],
     "evidence": [
       {
-        "source": "261116_체류민원_자격별_안내_매뉴얼-compressed.pdf",
-        "page": 39
+        "page": 39,
+        "section": "유학(D-2) > 시간제취업 활동 허가 > 라. 허가 기준 등",
+        "quote": "- 어학연수생(D-4): 체류기간 내에서 최장 6개월, 장소 1곳 한정 / - 유학생(D-2): 체류기간 내에서 최장 1년, 시간제 취업허가 허용 시간",
+        "chunk_id": "DOC-D2#9ad898768c",
+        "required": true
       }
     ],
     "no_answer_reason": null,

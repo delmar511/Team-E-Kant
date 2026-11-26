@@ -169,8 +169,66 @@ class ClaudeLLM:
         return LLMReply(msg.text.strip(), int(u.get("input_tokens", 0)), int(u.get("output_tokens", 0)))
 
 
-def make_answer_llm(cfg) -> ClaudeLLM:
+class OpenAILLM:
+    """OpenAI Chat Completions 호출 (키: .env 의 OPENAI_API_KEY). ClaudeLLM 과 같은 구조화 출력(ANSWER_SCHEMA).
+
+    키는 .env 값을 먼저 쓴다. 시스템 환경변수에 오래된 키가 남아 있으면 load_dotenv 가 덮어쓰지 않기 때문.
+    temperature 는 보내지 않는다 (추론 모델은 거부). 사고 깊이는 reasoning_effort (.env 의 LLM_EFFORT).
+    """
+
+    def __init__(self, model, max_tokens=16000, timeout_s=60.0, max_retries=2, effort=None, structured=True):
+        self.model = model
+        self.max_tokens = max_tokens
+        self.timeout_s = timeout_s
+        self.max_retries = max_retries
+        self.effort = effort or os.getenv("LLM_EFFORT", "medium")
+        self.structured = structured
+        self._client = None
+
+    @property
+    def model_id(self):
+        return f"{self.model}@{self.effort}"
+
+    def _get_client(self):
+        if self._client is None:
+            from dotenv import dotenv_values
+            from pathlib import Path
+
+            from openai import OpenAI
+
+            root = Path(__file__).resolve().parents[2]  # src/answer/generator.py -> 저장소 루트
+            key = (dotenv_values(root / ".env").get("OPENAI_API_KEY") or os.getenv("OPENAI_API_KEY") or "").strip()
+            self._client = OpenAI(api_key=key, timeout=self.timeout_s, max_retries=self.max_retries)
+        return self._client
+
+    def __call__(self, prompt: str) -> LLMReply:
+        kwargs = {}
+        if self.structured:
+            kwargs["response_format"] = {"type": "json_schema",
+                                         "json_schema": {"name": "answer", "schema": ANSWER_SCHEMA, "strict": True}}
+        r = self._get_client().chat.completions.create(
+            model=self.model,
+            messages=[{"role": "user", "content": prompt}],
+            max_completion_tokens=self.max_tokens,
+            reasoning_effort=self.effort,
+            **kwargs,
+        )
+        choice = r.choices[0]
+        if getattr(choice.message, "refusal", None):
+            raise RuntimeError(f"모델이 답변을 거절함 ({choice.message.refusal})")
+        if choice.finish_reason == "length":
+            raise RuntimeError("max_completion_tokens 도달로 답변이 잘림")
+        u = r.usage
+        return LLMReply((choice.message.content or "").strip(),
+                        int(getattr(u, "prompt_tokens", 0) or 0), int(getattr(u, "completion_tokens", 0) or 0))
+
+
+def make_answer_llm(cfg, provider="claude", model=None):
+    """provider='openai' 이면 model(없으면 .env 의 OPENAI_MODEL)로 생성. 나머지 설정은 [generation] 그대로."""
     g = cfg.generation
+    if provider == "openai":
+        return OpenAILLM(model or os.getenv("OPENAI_MODEL", "gpt-6-luna"), max_tokens=g.max_output_tokens,
+                         timeout_s=g.timeout_s, max_retries=g.max_retries)
     return ClaudeLLM(g.model, max_tokens=g.max_output_tokens, timeout_s=g.timeout_s, max_retries=g.max_retries)
 
 
