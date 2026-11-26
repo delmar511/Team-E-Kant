@@ -146,34 +146,61 @@ def _extract_score(text: str) -> float | None:
     return max(0.0, min(1.0, v))
 
 
-def run_ragas(samples: list[dict], model: str) -> list[dict]:
-    """RAGAS 지표를 Anthropic SDK 직접 호출로 계산한다 (RAGAS 비동기 러너 우회)."""
-    import anthropic
+def run_ragas(samples: list[dict], model: str, provider: str = "anthropic") -> list[dict]:
+    """RAGAS 지표를 LLM SDK 직접 호출로 계산한다 (RAGAS 비동기 러너 우회).
+
+    provider: "anthropic" 또는 "openai"
+    """
     import time
     from dotenv import load_dotenv
     load_dotenv(ROOT / ".env")
 
-    client = anthropic.Anthropic()
+    if provider == "openai":
+        from openai import OpenAI
+        from dotenv import dotenv_values
+        _key = (dotenv_values(ROOT / ".env").get("OPENAI_API_KEY") or os.getenv("OPENAI_API_KEY") or "").strip()
+        _base = (dotenv_values(ROOT / ".env").get("OPENAI_BASE_URL") or os.getenv("OPENAI_BASE_URL") or "").strip()
+        oa_client = OpenAI(api_key=_key or None, base_url=_base or None)
 
-    def judge(prompt: str) -> float | None:
-        for attempt in range(3):
-            try:
-                msg = client.messages.create(
-                    model=model,
-                    max_tokens=4096,
-                    messages=[{"role": "user", "content": prompt}],
-                )
-                texts = [b.text for b in msg.content if type(b).__name__ == "TextBlock"]
-                if not texts:
-                    types = [type(b).__name__ for b in msg.content]
-                    raise ValueError(f"텍스트 블록 없음 — 반환된 블록: {types}")
-                return _extract_score(texts[-1])
-            except Exception as e:
-                if attempt < 2:
-                    time.sleep(2 ** attempt)
-                else:
-                    print(f"[judge 실패] {e}")
-                    return None
+        def judge(prompt: str) -> float | None:
+            for attempt in range(3):
+                try:
+                    r = oa_client.chat.completions.create(
+                        model=model,
+                        max_completion_tokens=4096,
+                        messages=[{"role": "user", "content": prompt}],
+                    )
+                    text = r.choices[0].message.content or ""
+                    return _extract_score(text)
+                except Exception as e:
+                    if attempt < 2:
+                        time.sleep(2 ** attempt)
+                    else:
+                        print(f"[judge 실패] {e}")
+                        return None
+    else:
+        import anthropic
+        an_client = anthropic.Anthropic()
+
+        def judge(prompt: str) -> float | None:
+            for attempt in range(3):
+                try:
+                    msg = an_client.messages.create(
+                        model=model,
+                        max_tokens=4096,
+                        messages=[{"role": "user", "content": prompt}],
+                    )
+                    texts = [b.text for b in msg.content if type(b).__name__ == "TextBlock"]
+                    if not texts:
+                        types = [type(b).__name__ for b in msg.content]
+                        raise ValueError(f"텍스트 블록 없음 — 반환된 블록: {types}")
+                    return _extract_score(texts[-1])
+                except Exception as e:
+                    if attempt < 2:
+                        time.sleep(2 ** attempt)
+                    else:
+                        print(f"[judge 실패] {e}")
+                        return None
 
     out = []
     total = len(samples)
@@ -215,7 +242,7 @@ def render_report(rows: list[dict], sources: list[str]) -> str:
         "",
         f"- 실행 기록: {', '.join(Path(s).name for s in sources)}",
         f"- 평가 건수: {len(rows)}건 (no_answer·오류 제외)",
-        "- 지표: ContextRecall, Faithfulness, ContextPrecision (Anthropic Claude judge)",
+        "- 지표: ContextRecall, Faithfulness, ContextPrecision (LLM judge)",
         "",
         "## 구성별 평균",
         "",
@@ -244,9 +271,21 @@ def main(argv=None):
     p = argparse.ArgumentParser(description="RAGAS 기반 RAG 평가")
     p.add_argument("records", nargs="+", help="results/runs/*.records.jsonl")
     p.add_argument("--eval", required=True, help="eval/eval-dev.json 또는 eval/eval-test.json")
-    p.add_argument("--model", default="claude-haiku-5-5", help="Anthropic 모델 ID (기본: claude-haiku-5-5)")
+    p.add_argument("--provider", choices=["anthropic", "openai"], default="openai",
+                   help="LLM judge 제공자 (기본: openai)")
+    p.add_argument("--model", default=None,
+                   help="judge 모델 ID (기본: openai→.env OPENAI_MODEL 또는 gpt-6-luna, anthropic→claude-haiku-5-5)")
     p.add_argument("--out", help="결과 JSON 저장 경로 (없으면 results/ragas/ 에 자동 저장)")
     a = p.parse_args(argv)
+
+    if a.model is None:
+        if a.provider == "openai":
+            import os
+            from dotenv import load_dotenv
+            load_dotenv(ROOT / ".env")
+            a.model = os.getenv("OPENAI_MODEL", "gpt-6-luna")
+        else:
+            a.model = "claude-haiku-5-5"
 
     questions = load_questions(a.eval)
     records = load_records([Path(r) for r in a.records])
@@ -257,8 +296,8 @@ def main(argv=None):
     if not samples:
         raise SystemExit("[ragas_eval] 평가 대상 샘플이 없습니다 (no_answer 또는 오류 건만 있음).")
 
-    print(f"[ragas_eval] LLM judge: {a.model} — RAGAS 실행 중...")
-    rows = run_ragas(samples, a.model)
+    print(f"[ragas_eval] LLM judge: {a.provider}/{a.model} — RAGAS 실행 중...")
+    rows = run_ragas(samples, a.model, provider=a.provider)
 
     report = render_report(rows, a.records)
     print(report)
