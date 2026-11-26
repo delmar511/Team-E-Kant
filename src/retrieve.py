@@ -198,8 +198,13 @@ def show(results, chunks, query):
         print('  (결과 없음)')
 
 
-def evaluate(path, run, chunks, label):
-    """dev 평가셋으로 Hit@5 를 잰다. run(query) -> [(chunk_id, 점수)]"""
+def evaluate(path, run, chunks, label, top_k=TOP_K):
+    """평가셋으로 Hit@k 를 잰다. run(query) -> [(chunk_id, 점수)]
+
+    top_k 를 후보 수(20)로 주면 '후보 안에 정답이 있었나'(재현율)를 볼 수 있다.
+    재정렬은 후보를 다시 줄 세울 뿐 새로 찾아오지 않으므로, 재정렬 앞단을
+    고를 때는 상위 5 순서가 아니라 이 값을 봐야 한다.
+    """
     rows = json.loads(Path(path).read_text(encoding='utf-8'))
     scored = [r for r in rows if r['type'] != 'no_answer']
     hit = n = 0
@@ -216,7 +221,7 @@ def evaluate(path, run, chunks, label):
         # 정답 청크가 몇 위였나. Hit@5 는 1위와 5위를 똑같이 O 로 처리하므로
         # 순위를 같이 봐야 구성 간 차이가 보인다.
         pos = next((i for i, c in enumerate(ordered, 1) if c in gold), None)
-        ok = bool(pos and pos <= TOP_K)
+        ok = bool(pos and pos <= top_k)
         hit += ok
         rr.append(1.0 / pos if pos else 0.0)
         print(f'  {"O" if ok else "X"}  {r["id"]}  {str(pos) if pos else "-":>3}위  {r["question"][:40]}')
@@ -225,7 +230,7 @@ def evaluate(path, run, chunks, label):
         print('  -> python src/link_evidence.py <평가셋> --write 를 먼저 돌릴 것')
     if n:
         mrr = sum(rr) / len(rr)
-        print(f'\nHit@{TOP_K} = {hit}/{n}   MRR = {mrr:.3f}   ({label}, no_answer 제외)')
+        print(f'\nHit@{top_k} = {hit}/{n}   MRR = {mrr:.3f}   ({label}, no_answer 제외)')
     else:
         print('\n채점 가능한 문항이 없다.')
 
@@ -235,6 +240,9 @@ def main():
     ap.add_argument('query', nargs='?')
     ap.add_argument('--eval')
     ap.add_argument('--index', default='data/index')
+    ap.add_argument('--top-k', type=int, default=TOP_K, dest='top_k',
+                    help=f'상위 몇 위까지를 적중으로 볼지 (기본 {TOP_K}). '
+                         f'후보 재현율을 보려면 {CANDIDATES}')
     ap.add_argument('--no-protect', action='store_true', dest='no_protect',
                     help='질문 쪽 비자 코드 보호도 끈다. 보호 OFF 색인과 짝으로만 쓸 것')
     ap.add_argument('--w-bm25', type=float, default=1.0, dest='w_bm25',
@@ -278,7 +286,7 @@ def main():
         label = f'구성 B BM25+벡터 RRF (k={RRF_K}, w_bm25={wb})'
 
     if a.eval:
-        evaluate(a.eval, run, chunks, label)
+        evaluate(a.eval, run, chunks, label, a.top_k)
     elif a.query:
         show(run(a.query), chunks, a.query)
     else:
