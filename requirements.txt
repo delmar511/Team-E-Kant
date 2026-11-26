@@ -34,6 +34,9 @@ numpy                      # retrieve.py 벡터 검색
 # PDF 괘선 좌표를 읽는 데만 쓴다. apply_placement·chunk.py·pytest 는 이것 없이 동작한다 (지연 import).
 pdfplumber==0.11.11
 
+# --- RAGAS 평가 (experiments/ragas_eval.py) ---
+ragas==0.4.4               # RAG 평가 프레임워크 (context_recall / faithfulness / context_precision)
+
 # --- 공통 ---
 pydantic==2.9.2            # 청크 스키마 검증
 pytest                     # tests/
