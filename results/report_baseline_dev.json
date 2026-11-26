@@ -1,0 +1,86 @@
+{
+  "A [dev]": {
+    "runs": 10,
+    "hit5": "8/8 (1.00)",
+    "full_recall5": "0/8 (0.00)",
+    "hit5_by_type": {
+      "direct": "3/3 (1.00)",
+      "paraphrase": "2/2 (1.00)",
+      "confusable": "3/3 (1.00)"
+    },
+    "answer_correct": "0/8 (0.00) · 미채점 8",
+    "citation_valid": "0/8 (0.00) · 미채점 8",
+    "no_answer_correct": "0/2 (0.00) · 미채점 2",
+    "unreviewed": 0,
+    "retrieval_calls": "10/10 (1.00)",
+    "generation_calls": "10/10 (1.00)",
+    "errors": 0,
+    "timeouts": 0,
+    "status": {
+      "answered": 10
+    },
+    "latency_mean_s": 0.04,
+    "latency_median_s": 0.04,
+    "latency_n": 10,
+    "model_calls": 10,
+    "input_tokens": 0,
+    "output_tokens": 0,
+    "unmeasured_ids": []
+  },
+  "B [dev]": {
+    "runs": 10,
+    "hit5": "7/8 (0.88)",
+    "full_recall5": "1/8 (0.12)",
+    "hit5_by_type": {
+      "direct": "2/3 (0.67)",
+      "paraphrase": "2/2 (1.00)",
+      "confusable": "3/3 (1.00)"
+    },
+    "answer_correct": "0/8 (0.00) · 미채점 8",
+    "citation_valid": "0/8 (0.00) · 미채점 8",
+    "no_answer_correct": "0/2 (0.00) · 미채점 2",
+    "unreviewed": 0,
+    "retrieval_calls": "10/10 (1.00)",
+    "generation_calls": "10/10 (1.00)",
+    "errors": 0,
+    "timeouts": 0,
+    "status": {
+      "answered": 10
+    },
+    "latency_mean_s": 0.04,
+    "latency_median_s": 0.04,
+    "latency_n": 10,
+    "model_calls": 10,
+    "input_tokens": 0,
+    "output_tokens": 0,
+    "unmeasured_ids": []
+  },
+  "C [dev]": {
+    "runs": 10,
+    "hit5": "6/8 (0.75)",
+    "full_recall5": "0/8 (0.00)",
+    "hit5_by_type": {
+      "direct": "2/3 (0.67)",
+      "paraphrase": "1/2 (0.50)",
+      "confusable": "3/3 (1.00)"
+    },
+    "answer_correct": "0/8 (0.00) · 미채점 8",
+    "citation_valid": "0/8 (0.00) · 미채점 8",
+    "no_answer_correct": "0/2 (0.00) · 미채점 2",
+    "unreviewed": 0,
+    "retrieval_calls": "10/10 (1.00)",
+    "generation_calls": "10/10 (1.00)",
+    "errors": 0,
+    "timeouts": 0,
+    "status": {
+      "answered": 10
+    },
+    "latency_mean_s": 7.19,
+    "latency_median_s": 6.85,
+    "latency_n": 10,
+    "model_calls": 10,
+    "input_tokens": 0,
+    "output_tokens": 0,
+    "unmeasured_ids": []
+  }
+}

@@ -30,6 +30,10 @@ langchain-anthropic>=1.7.12
 langchain-core>=1.8.4      # PromptTemplate, ChatAnthropic
 numpy                      # retrieve.py 벡터 검색
 
+# --- 코퍼스 수정 12 (ingest/derive_placement 전용) ---
+# PDF 괘선 좌표를 읽는 데만 쓴다. apply_placement·chunk.py·pytest 는 이것 없이 동작한다 (지연 import).
+pdfplumber==0.11.11
+
 # --- 공통 ---
 pydantic==2.9.2            # 청크 스키마 검증
 pytest                     # tests/

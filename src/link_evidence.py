@@ -3,8 +3,9 @@
 
 담당: 서종찬 | 평가표 3·5번
 실행:
-    python src/link_evidence.py eval/eval-dev.json            # 미리보기만
-    python src/link_evidence.py eval/eval-dev.json --write    # 파일에 반영
+    python src/link_evidence.py eval/eval-dev.json                    # 미리보기만 (quote 모드)
+    python src/link_evidence.py eval/eval-dev.json --write            # 파일에 반영
+    python src/link_evidence.py eval/eval-test.json --mode page       # quote 가 없는 평가셋: 쪽 기준
 
 왜 section 이 아니라 quote 로 찾나
 -------------------------------
@@ -13,6 +14,15 @@
 글자 그대로 맞지 않는 표기가 섞여 있다. 반면 `quote` 는 원문 발췌라
 본문에서 직접 찾을 수 있다. 그래서 quote 를 1순위 단서로 쓰고,
 section 은 후보가 여럿일 때 가려내는 보조 단서로만 쓴다.
+
+쪽 모드(--mode page)
+-------------------
+시험셋(eval-test.json)의 근거에는 quote 가 없고 쪽(page)만 있다. 쪽 기준 연결은 틀리기 쉬워서
+(같은 쪽에 청크가 여럿이면 어느 것인지 알 수 없다) 보수적으로만 한다.
+  - 그 쪽을 쪽 범위에 가진 문서 안에서, 그 쪽에 있는 청크가 정확히 1개일 때만 연결한다.
+  - 0개이거나 2개 이상이면 chunk_id 는 null, 후보 목록은 chunk_ids_all 에 남긴다.
+  - 다른 문서나 첫 청크로 대체하지 않는다.
+  - quote 모드에서도 quote 가 없는 근거는 쪽 모드로 처리한다.
 
 한 근거의 quote 가 여러 청크에 걸치는 경우가 있다(표의 여러 칸을 ' / ' 로
 이어붙인 경우). 그때는 chunk_id 에 가장 많이 겹치는 청크를 넣고,
@@ -83,8 +93,12 @@ def _tally(frags, chunks):
 
 def link_one(ev, chunks):
     """근거 하나 -> (대표 chunk_id, 전체 후보, 상태)"""
-    quote = ev.get('quote', '')
+    quote = ev.get('quote') or ''
     page = ev.get('page')
+    # 빈 quote 는 단서가 아니다. fragments('') == [''] 이고 '' in 문자열 은 항상 참이라
+    # 모든 청크가 후보가 되어 같은 쪽 청크 -> 첫 청크로 떨어졌다 (DOC-A1#f137905102 가 그 결과)
+    if not norm(quote):
+        return None, [], 'not_found'
 
     frags = fragments(quote)
     tally, found = _tally(frags, chunks)
@@ -110,34 +124,83 @@ def link_one(ev, chunks):
     return best, ordered, status
 
 
+def doc_page_ranges(chunks):
+    """청크 목록 -> {doc_id: (가장 작은 쪽, 가장 큰 쪽)}. link_by_page 의 doc_pages."""
+    rng = {}
+    for c, _ in chunks:
+        p = c.get('page')
+        if p is None:
+            continue
+        lo, hi = rng.get(c['doc_id'], (p, p))
+        rng[c['doc_id']] = (min(lo, p), max(hi, p))
+    return rng
+
+
+def link_by_page(ev, chunks, doc_pages):
+    """근거 하나를 쪽으로 연결한다 -> (chunk_id | None, 후보 chunk_id 목록, 상태)
+
+    그 쪽을 쪽 범위(doc_pages)에 가진 문서들 안에서, 청크의 page 가 그 쪽인 것이 후보다.
+    후보가 정확히 1개일 때만 chunk_id 를 돌려주고 상태는 'page_ok'.
+    0개면 (None, [], 'not_found'), 2개 이상이면 (None, 후보들, 'page_ambiguous').
+    근거에 doc_id 가 있으면 그 문서만 본다. 범위 밖 문서나 첫 청크로는 절대 대체하지 않는다.
+    """
+    page = ev.get('page')
+    if page is None:
+        return None, [], 'not_found'
+    docs = {d for d, (lo, hi) in doc_pages.items() if lo <= page <= hi}
+    if ev.get('doc_id'):
+        docs &= {ev['doc_id']}
+    cands = [c['chunk_id'] for c, _ in chunks if c['doc_id'] in docs and c.get('page') == page]
+    if len(cands) == 1:
+        return cands[0], cands, 'page_ok'
+    if not cands:
+        return None, [], 'not_found'
+    return None, cands, 'page_ambiguous'
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument('evalfile')
     ap.add_argument('--chunks', default='data/chunks.jsonl')
+    ap.add_argument('--mode', choices=('quote', 'page'), default='quote',
+                    help='quote: 원문 발췌로 찾기 (quote 가 없는 근거는 page 로). page: 쪽 기준, 후보 1개일 때만')
+    ap.add_argument('--detail', action='store_true', help='근거마다 연결 결과를 한 줄씩 출력')
     ap.add_argument('--write', action='store_true', help='평가셋 파일에 직접 반영')
     a = ap.parse_args()
 
     chunks = load_chunks(a.chunks)
+    by_id = {c['chunk_id']: c for c, _ in chunks}
+    doc_pages = doc_page_ranges(chunks)
     rows = json.loads(Path(a.evalfile).read_text(encoding='utf-8'))
 
-    counts = {'ok': 0, 'partial': 0, 'spans_multiple': 0, 'not_found': 0}
-    report = []
+    counts = {'ok': 0, 'partial': 0, 'spans_multiple': 0, 'not_found': 0, 'page_ok': 0, 'page_ambiguous': 0}
+    report, detail = [], []
     for r in rows:
         for i, ev in enumerate(r.get('evidence', [])):
-            cid, allc, st = link_one(ev, chunks)
+            if a.mode == 'page' or not norm(ev.get('quote')):
+                cid, allc, st = link_by_page(ev, chunks, doc_pages)
+            else:
+                cid, allc, st = link_one(ev, chunks)
             counts[st] += 1
             ev['chunk_id'] = cid
             if len(allc) > 1:
                 ev['chunk_ids_all'] = allc[:5]
             elif 'chunk_ids_all' in ev:
                 del ev['chunk_ids_all']
-            if st != 'ok':
+            if st not in ('ok', 'page_ok'):
                 report.append((st, r['id'], i, ev.get('page'), (ev.get('quote') or '')[:60]))
+            c = by_id.get(cid)
+            detail.append(f"  {r['id']} evidence[{i}] p.{ev.get('page')} {st:14} -> {cid}"
+                          + (f" | {c['location']} | p.{c.get('page')}" if c else f' | 후보 {len(allc)}개'))
 
     total = sum(counts.values())
-    print(f'근거 {total}건')
-    for k in ('ok', 'spans_multiple', 'partial', 'not_found'):
-        print(f'  {k:16} {counts[k]}')
+    print(f'근거 {total}건 (mode={a.mode})')
+    for k in ('ok', 'page_ok', 'spans_multiple', 'partial', 'page_ambiguous', 'not_found'):
+        if counts[k] or k in ('ok', 'not_found'):
+            print(f'  {k:16} {counts[k]}')
+    if a.detail:
+        print('\n--- 근거별 결과 ---')
+        print('\n'.join(detail))
     if report:
         print('\n--- 사람이 확인할 것 ---')
         for st, qid, i, page, q in report:

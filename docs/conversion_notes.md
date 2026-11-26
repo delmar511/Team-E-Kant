@@ -365,3 +365,93 @@ python src/build_index.py --chunks data/chunks.jsonl --out data/index --version 
 그래서 쪽 표시 직후에 제목이 오면 그 앞 절 청크가 한 쪽 뒤 번호로 기록된다. 기존 문서에 129군데.
 `page` 는 `chunk_id` 해시에 들어가지 않으므로 고쳐도 ID 는 바뀌지 않지만, 인용 쪽 번호와
 평가셋의 `page` 대조가 달라질 수 있어 따로 확인 후 고친다.
+
+## 수정 13 — PDF 글리프(사설영역 문자) 정리 (2026-11-26)
+
+### 증상
+
+PDF 렌더링에 심볼 폰트가 쓰인 문자(`·`, 글머리 기호, 순서 번호)가 pdftotext 추출 시
+유니코드 사설영역(PUA, U+E000–U+F8FF)으로 변환됐다. 변환 후 Markdown 파일
+`docs/corpus/*.md` 290개 청크(~1,000회)에 잔류했다.
+
+BM25 색인은 kiwi 토크나이저가 PUA를 무시해 영향 없었으나, LLM 입력 본문·인용·
+임베딩 입력에 깨진 문자가 그대로 노출됐다.
+
+### 매핑 (맥락 ±15자 검증 완료)
+
+| 코드 포인트 | 횟수 | 대체값 | 신뢰도 |
+|---|---|---|---|
+| U+F024 | 721 | `·` (가운뎃점) | 높음 |
+| U+F023 | 138 | `◦` (글머리 기호) | 높음 |
+| U+F077 | 28 | `◦` | 높음 |
+| U+F06D | 12 | `◦` | 높음 |
+| U+F06F | 8 | `◦` | 높음 |
+| U+F0A7 | 5 | `◦` | 높음 |
+| U+F081 | 3 | `①` | **중간 — PDF 미검증** (Wingdings 0x81 추정) |
+| U+F082 | 3 | `②` | **중간 — PDF 미검증** (Wingdings 0x82 추정) |
+| U+F083 | 1 | `③` | **중간 — PDF 미검증** (Wingdings 0x83 추정) |
+| 그 외 (U+F027, F047, F04C, F04D, F053, F054, F076, F09E, F0AE, F0B2, F0DE, F0E8, F0FD) | 계 28 | 제거 | 높음 |
+
+**U+F081–F083**: DOC-F2 거주(F-2) 절에 ①②③ 순서로 등장하는 순서 번호 글리프.
+맥락에서는 올바르지만 원본 PDF로 Wingdings 0x81–0x83 대응을 직접 확인하지 못했다.
+PDF 접근 시 반드시 검증할 것.
+
+### 조치
+
+1. `src/ingest/pdf_to_md.py`에 `fix_glyphs(s: str) -> str` 함수 추가.
+   `_GLYPH_MAP` 에 매핑, 나머지 PUA 제거. `_pua_counts` 에 발생 횟수 누적.
+   `squash()` 첫 번째 줄에서 `fix_glyphs(s)` 호출 → pdf_to_md·intro_to_md 모두 적용.
+
+2. `docs/corpus/*.md` 35개 파일에 `fix_glyphs` 일괄 적용 (원본 PDF 없어 재변환 불가).
+   PUA 외 내용 변경 없음 검증 완료. 적용 후 `docs/corpus` 내 PUA 잔여 0건.
+
+3. 테스트: `tests/test_pdf_to_md.py` 에 fix_glyphs 케이스 6개 추가.
+
+### 코드 포인트별 발생 횟수 (전체)
+
+| U+F023 | U+F024 | U+F027 | U+F047 | U+F04C | U+F04D | U+F053 | U+F054 | U+F06D | U+F06F | U+F076 | U+F077 | U+F081 | U+F082 | U+F083 | U+F09E | U+F0A7 | U+F0AE | U+F0B2 | U+F0DE | U+F0E8 | U+F0FD |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| 138 | 721 | 1 | 1 | 5 | 3 | 2 | 3 | 12 | 8 | 1 | 28 | 3 | 3 | 1 | 1 | 5 | 1 | 4 | 4 | 2 | 2 |
+
+### 청크 ID 변경
+
+- body 청크 수: 1,653개 (변경 없음)
+- fold 청크: 228개 추가 (chunk.py fold 모드 — 수정 13 범위 밖의 별도 변경)
+- PUA로 인한 body chunk_id 변경: **208개** (텍스트 앞 200자에 PUA가 포함된 청크)
+
+### 재링크된 gold 청크
+
+태스크에서 예상한 4개 gold chunk 모두 올바르게 재매핑됨:
+
+| 기존 ID | 새 ID |
+|---|---|
+| `DOC-D2#bc38279e74` | `DOC-D2#560f44d5f2` |
+| `DOC-D2#d5c839543d` | `DOC-D2#559d8bc771` |
+| `DOC-D4#77e552e2ea` | `DOC-D4#7e7390713d` |
+| `DOC-WIDE#aae3eaab06` | `DOC-WIDE#6cdfbe4c22` |
+
+eval-dev.json, eval-test.json 의 모든 chunk_id/chunk_ids_all 재매핑 완료.
+link_evidence 교차 검증: dev 34/36 ok (기존 not_found 1·spans_multiple 1 그대로).
+
+### 재빌드 명령
+
+```bash
+# Windows: set PYTHONUTF8=1
+python src/ingest/chunk.py "docs/corpus/*.md" > data/chunks.jsonl
+python src/build_index.py --chunks data/chunks.jsonl --out data/index --version idx-v4
+python src/build_vectors.py --model nlpai-lab/KURE-v1   # ~33분, CPU
+```
+
+### 개발 셋 검색 결과 (idx-v4, 임베딩 재빌드 완료)
+
+| 구성 | 기존 (idx-v1) Hit@5/MRR | 이후 (idx-v4) Hit@5/MRR | 변동 |
+|---|---|---|---|
+| A (벡터 단독) | 8/8 / 0.792 | 8/8 / 0.792 | 없음 |
+| B (BM25+벡터 RRF) | 7/8 / 0.557 | 7/8 / 0.580 | MRR +0.023 (DEV-003 8위→7위) |
+
+PUA 정리로 임베딩 품질이 약간 개선됨. Hit@5 변화 없음.
+
+### 알아야 할 사항
+
+- U+F081–F083 → ①②③ 는 PDF 없이 맥락 추정만으로 결정. PDF 접근 시 검증 필요.
+- 그 외 다른 변환 문제(날짜 형식 깨짐, 표 칸 순서 등)는 이 수정 범위 밖. 별도 처리 필요.

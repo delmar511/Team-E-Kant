@@ -115,6 +115,21 @@ def test_invalid_configs_rejected(repo, name, old, new, msg):
         load(repo, target)
 
 
+def test_index_chunking_defaults_and_validation(repo):
+    c = load(repo, "A.toml")  # A extends base
+    assert c.index.bodyless_heading_mode == "fold"
+    assert c.index.min_chunk_chars == 20
+    edit(repo, "base.toml", 'bodyless_heading_mode = "fold"', 'bodyless_heading_mode = "keep"')
+    with pytest.raises(ConfigError):
+        load(repo, "A.toml")
+
+
+def test_min_chunk_chars_must_be_positive(repo):
+    edit(repo, "base.toml", "min_chunk_chars = 20", "min_chunk_chars = 0")
+    with pytest.raises(ConfigError):
+        load(repo, "A.toml")
+
+
 def test_unknown_key_rejected(repo):
     edit(repo, "A.toml", "top_k = 5", "top_k = 5\ntopk = 5")
     with pytest.raises(ConfigError):
