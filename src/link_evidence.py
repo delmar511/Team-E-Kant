@@ -17,7 +17,9 @@ section 은 후보가 여럿일 때 가려내는 보조 단서로만 쓴다.
 
 쪽 모드(--mode page)
 -------------------
-시험셋(eval-test.json)의 근거에는 quote 가 없고 쪽(page)만 있다. 쪽 기준 연결은 틀리기 쉬워서
+시험셋(eval-test.json)의 근거에는 quote 키가 아예 없고 쪽(page)만 있다. 이때 기본 quote
+모드는 멈춘다 -- 예전에는 조용히 쪽 모드로 넘어가 32건을 전부 자동 배정했고, 그 값이
+정답지에 그대로 들어갔다. 모드는 사람이 직접 고를 것. 쪽 기준 연결은 틀리기 쉬워서
 (같은 쪽에 청크가 여럿이면 어느 것인지 알 수 없다) 보수적으로만 한다.
   - 그 쪽을 쪽 범위에 가진 문서 안에서, 그 쪽에 있는 청크가 정확히 1개일 때만 연결한다.
   - 0개이거나 2개 이상이면 chunk_id 는 null, 후보 목록은 chunk_ids_all 에 남긴다.
@@ -124,6 +126,54 @@ def link_one(ev, chunks):
     return best, ordered, status
 
 
+FACTS_N = 8          # expected_facts 를 이 길이로 쪼갠다
+FACTS_STEP = 4
+FACTS_MIN = 0.20     # 이 비율 이상 겹쳐야 배정한다
+FACTS_MARGIN = 3.0   # 2위보다 이 배 이상이어야 배정한다
+
+
+def _grams(text):
+    t = re.sub(r'[\s·ㆍ,./()\[\]「」『』]', '', text or '')
+    return {t[i:i + FACTS_N] for i in range(0, max(1, len(t) - FACTS_N + 1), FACTS_STEP)
+            if len(t[i:i + FACTS_N]) == FACTS_N}
+
+
+def link_by_facts(ev, question_facts, chunks, doc_pages):
+    """quote 가 없을 때 expected_facts 로 찾는다.
+
+    expected_facts 는 평가셋 작성자가 **원문을 보고** 적은 문장이므로 quote 와 같은
+    역할을 한다. 검색 결과를 쓰지 않으므로 순환이 아니다.
+
+    빈 quote 로 모든 청크가 후보가 되던 예전 버그(그 쪽 첫 청크가 그대로 chunk_id 로
+    박혔다)의 피해를 되돌리기 위한 모드다.
+
+    확신이 없으면 배정하지 않는다. 겹침 비율이 FACTS_MIN 미만이거나
+    2위와 FACTS_MARGIN 배 미만 차이면 'facts_weak' 로 둔다.
+    """
+    page = ev.get('page')
+    if page is None or not question_facts:
+        return None, [], 'not_found'
+    docs = {d for d, (lo, hi) in doc_pages.items() if lo <= page <= hi}
+    cand = [c for c, _ in chunks if c['doc_id'] in docs and c.get('page') == page]
+    if not cand:
+        return None, [], 'not_found'
+
+    fg = _grams(' '.join(question_facts))
+    if not fg:
+        return None, [c['chunk_id'] for c in cand], 'page_ambiguous'
+
+    scored = []
+    for c in cand:
+        t = re.sub(r'[\s·ㆍ,./()\[\]「」『』]', '', c['text'])
+        scored.append((sum(1 for g in fg if g in t) / len(fg), c['chunk_id']))
+    scored.sort(reverse=True)
+    best, runner = scored[0], (scored[1][0] if len(scored) > 1 else 0.0)
+    ids = [cid for _, cid in scored]
+    if best[0] < FACTS_MIN or best[0] < runner * FACTS_MARGIN:
+        return None, ids, 'facts_weak'
+    return best[1], ids, 'facts_ok'
+
+
 def doc_page_ranges(chunks):
     """청크 목록 -> {doc_id: (가장 작은 쪽, 가장 큰 쪽)}. link_by_page 의 doc_pages."""
     rng = {}
@@ -162,8 +212,10 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument('evalfile')
     ap.add_argument('--chunks', default='data/chunks.jsonl')
-    ap.add_argument('--mode', choices=('quote', 'page'), default='quote',
-                    help='quote: 원문 발췌로 찾기 (quote 가 없는 근거는 page 로). page: 쪽 기준, 후보 1개일 때만')
+    ap.add_argument('--mode', choices=('quote', 'page', 'facts'), default='quote',
+                    help='quote: 원문 발췌로 찾기 (없으면 page). '
+                         'page: 쪽 기준, 후보 1개일 때만. '
+                         'facts: quote 가 없을 때 expected_facts 로 찾기 (확신 없으면 배정 안 함)')
     ap.add_argument('--detail', action='store_true', help='근거마다 연결 결과를 한 줄씩 출력')
     ap.add_argument('--write', action='store_true', help='평가셋 파일에 직접 반영')
     a = ap.parse_args()
@@ -173,11 +225,34 @@ def main():
     doc_pages = doc_page_ranges(chunks)
     rows = json.loads(Path(a.evalfile).read_text(encoding='utf-8'))
 
-    counts = {'ok': 0, 'partial': 0, 'spans_multiple': 0, 'not_found': 0, 'page_ok': 0, 'page_ambiguous': 0}
+    # quote 가 없는 근거를 먼저 센다.
+    # 예전에는 여기서 멈추지 않고 조용히 쪽 모드로 넘어갔다. 그 결과
+    # eval-test.json 32건이 전부 자동 배정됐고, 질문은 한 번도 읽히지 않았다.
+    # 입력이 없으면 실패로 보고해야지, 다른 방식으로 바꿔 돌리면 안 된다.
+    no_quote = [(r['id'], i) for r in rows
+                for i, ev in enumerate(r.get('evidence', []))
+                if not norm(ev.get('quote'))]
+    if no_quote and a.mode == 'quote':
+        total_ev = sum(len(r.get('evidence', [])) for r in rows)
+        qid, idx = no_quote[0]
+        sys.exit(
+            f'{Path(a.evalfile).name}: 근거 {total_ev}건 중 {len(no_quote)}건에 quote 가 없다'
+            f' (예: {qid} evidence[{idx}]).\n'
+            'quote 모드는 원문 발췌가 있어야 한다. 셋 중 하나를 고를 것.\n'
+            '  1) 평가셋에 quote 를 채운다            — 가장 정확하다\n'
+            '  2) --mode facts   expected_facts 로 찾고, 확신 없으면 비워둔다\n'
+            '  3) --mode page    쪽 기준, 후보가 정확히 1개일 때만 배정한다')
+    if no_quote:
+        print(f'알림: quote 없는 근거 {len(no_quote)}건을 {a.mode} 모드로 처리한다.\n')
+
+    counts = {'ok': 0, 'partial': 0, 'spans_multiple': 0, 'not_found': 0,
+              'page_ok': 0, 'page_ambiguous': 0, 'facts_ok': 0, 'facts_weak': 0}
     report, detail = [], []
     for r in rows:
         for i, ev in enumerate(r.get('evidence', [])):
-            if a.mode == 'page' or not norm(ev.get('quote')):
+            if a.mode == 'facts' and not norm(ev.get('quote')):
+                cid, allc, st = link_by_facts(ev, r.get('expected_facts'), chunks, doc_pages)
+            elif a.mode == 'page' or not norm(ev.get('quote')):
                 cid, allc, st = link_by_page(ev, chunks, doc_pages)
             else:
                 cid, allc, st = link_one(ev, chunks)
@@ -187,7 +262,7 @@ def main():
                 ev['chunk_ids_all'] = allc[:5]
             elif 'chunk_ids_all' in ev:
                 del ev['chunk_ids_all']
-            if st not in ('ok', 'page_ok'):
+            if st not in ('ok', 'page_ok', 'facts_ok'):
                 report.append((st, r['id'], i, ev.get('page'), (ev.get('quote') or '')[:60]))
             c = by_id.get(cid)
             detail.append(f"  {r['id']} evidence[{i}] p.{ev.get('page')} {st:14} -> {cid}"
@@ -195,7 +270,8 @@ def main():
 
     total = sum(counts.values())
     print(f'근거 {total}건 (mode={a.mode})')
-    for k in ('ok', 'page_ok', 'spans_multiple', 'partial', 'page_ambiguous', 'not_found'):
+    for k in ('ok', 'page_ok', 'facts_ok', 'spans_multiple', 'partial',
+              'page_ambiguous', 'facts_weak', 'not_found'):
         if counts[k] or k in ('ok', 'not_found'):
             print(f'  {k:16} {counts[k]}')
     if a.detail:
