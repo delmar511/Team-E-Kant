@@ -41,7 +41,7 @@ def load_chunks(path):
 
 
 # ============================================================ 본인 작성 구간
-def build_bm25(chunks):
+def build_bm25(chunks, protect=True):
     """청크 목록 -> (BM25Okapi 색인, 토큰화된 문서 목록)
 
     할 일
@@ -59,7 +59,7 @@ def build_bm25(chunks):
 
     힌트: 1번은 리스트 컴프리헨션 한 줄이면 된다.
     """
-    tokenized = [tokenize(c['text']) for c in chunks]
+    tokenized = [tokenize(c['text'], protect) for c in chunks]
     bm25 = BM25Okapi(tokenized)
 
     return bm25, tokenized
@@ -67,7 +67,7 @@ def build_bm25(chunks):
 # =========================================================== /본인 작성 구간
 
 
-def save(out_dir, bm25, tokenized, chunks, version):
+def save(out_dir, bm25, tokenized, chunks, version, protect=True):
     """색인과 설정을 함께 저장한다.
 
     설정을 같이 남겨야 '이 검색 결과가 어떤 색인에서 나왔나' 를 역추적할 수 있다.
@@ -87,7 +87,8 @@ def save(out_dir, bm25, tokenized, chunks, version):
         'built_at': datetime.datetime.now().isoformat(timespec='seconds'),
         'n_chunks': len(chunks),
         'n_docs': len({c['doc_id'] for c in chunks}),
-        'tokenizer': 'kiwipiepy + 비자코드 보호',
+        'tokenizer': 'kiwipiepy + 비자코드 보호' if protect else 'kiwipiepy (보호 규칙 OFF)',
+        'protect_visa_codes': protect,
         'bm25': 'rank_bm25.BM25Okapi (k1/b 기본값)',
         'avg_tokens': round(sum(len(t) for t in tokenized) / len(tokenized), 1),
     }
@@ -101,12 +102,17 @@ def main():
     ap.add_argument('--chunks', default='data/chunks.jsonl')
     ap.add_argument('--out', default='data/index')
     ap.add_argument('--version', default='idx-v1')
+    ap.add_argument('--no-protect', action='store_true', dest='no_protect',
+                    help='비자 코드 보호를 끄고 색인한다 (보호 규칙 검증 실험용)')
     a = ap.parse_args()
 
     chunks = load_chunks(a.chunks)
     print(f'청크 {len(chunks)}개 읽음. 토큰화 중... (1~2분 걸린다)')
-    bm25, tokenized = build_bm25(chunks)
-    meta = save(a.out, bm25, tokenized, chunks, a.version)
+    protect = not a.no_protect
+    if not protect:
+        print('보호 규칙 OFF — E-7 이 E/7 로 쪼개진다. 검증 실험 전용이다.')
+    bm25, tokenized = build_bm25(chunks, protect)
+    meta = save(a.out, bm25, tokenized, chunks, a.version, protect)
     print(json.dumps(meta, ensure_ascii=False, indent=2))
 
 
