@@ -25,7 +25,9 @@ from search_adapter import make_retriever  # noqa: E402
 p = argparse.ArgumentParser()
 p.add_argument("--configs", nargs="+", default=["A"], help="configs/ 아래 파일 이름 (예: A B C, C_cache)")
 p.add_argument("--eval", default=str(ROOT / "eval/eval-dev.json"))
-p.add_argument("--llm", choices=["dummy", "claude"], default="dummy", help="claude = 실제 API 호출 (비용 발생)")
+p.add_argument("--llm", choices=["dummy", "claude", "openai"], default="dummy",
+               help="claude / openai = 실제 API 호출 (비용 발생)")
+p.add_argument("--openai-model", default=None, help="--llm openai 일 때 모델 (없으면 .env 의 OPENAI_MODEL, 기본 gpt-6-luna)")
 p.add_argument("--kind", choices=[k.value for k in RunKind], default="dev",
                help="core=본 평가 60건, branch=최적화, dev=dev 튜닝, warmup, retry, extra")
 p.add_argument("--stub", action="store_true", help="색인 없이 더미 검색기 사용")
@@ -39,6 +41,8 @@ load_dotenv(ROOT / ".env")  # ANTHROPIC_API_KEY, EMBEDDING_MODEL, LLM_EFFORT
 if a.llm == "claude" and not os.environ.get("ANTHROPIC_API_KEY", "").strip():
     # 키 없이 돌리면 모든 문항이 model_error 로 기록되어 실행 기록이 오염된다. 시작 전에 멈춘다.
     sys.exit("ANTHROPIC_API_KEY 가 없습니다. .env 를 확인하세요 (--llm claude)")
+if a.llm == "openai" and not os.environ.get("OPENAI_API_KEY", "").strip():
+    sys.exit("OPENAI_API_KEY 가 없습니다. .env 를 확인하세요 (--llm openai)")
 
 cfgs = [load_config(ROOT / "configs" / f"{name}.toml") for name in a.configs]
 core = [c for c in cfgs if c.optimization.kind is OptimizationKind.NONE]
@@ -55,7 +59,8 @@ n_done = 0
 # 실행마다 바로 한 줄씩 쓴다: 중간에 멈춰도 그때까지의 기록(과 API 비용)이 남는다
 with JsonlWriter(rec_path) as rec_out, JsonlWriter(trace_path) as trace_out:
     for cfg in cfgs:
-        llm_fn = make_answer_llm(cfg) if a.llm == "claude" else dummy_llm
+        llm_fn = (make_answer_llm(cfg, provider=a.llm, model=a.openai_model) if a.llm in ("claude", "openai")
+                  else dummy_llm)
         # effort 는 config 에 칸이 없어 생성 모델 이름에 붙여 기록한다 (예: claude-opus-5-5@medium). 캐시 키에도 반영됨
         versions = build_versions(cfg).model_copy(update={"generation_model": llm_fn.model_id})
         retriever = make_retriever(cfg, stub=a.stub)

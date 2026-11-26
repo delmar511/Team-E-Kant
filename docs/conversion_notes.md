@@ -366,6 +366,43 @@ python src/build_index.py --chunks data/chunks.jsonl --out data/index --version 
 `page` 는 `chunk_id` 해시에 들어가지 않으므로 고쳐도 ID 는 바뀌지 않지만, 인용 쪽 번호와
 평가셋의 `page` 대조가 달라질 수 있어 따로 확인 후 고친다.
 
+→ **수정 12 에서 해결.** 실제 범위는 129군데·한 쪽 어긋남보다 컸다 (아래).
+
+## 수정 12 — 청크 `page` 를 본문 시작 쪽으로 (2026-11-26)
+
+### 증상
+
+`chunk.py` 가 청크를 내보내는 시점(다음 제목을 만날 때)의 `page` 를 기록해서, 청크가 **구간이 끝나는 쪽**을 받았다.
+긴 구간을 `MAXLEN` 으로 쪼갠 조각들도 모두 같은 끝 쪽을 받았다.
+평가셋 TEST 문항의 근거 쪽을 청크와 대조하다 발견했다. 예: D-2 `외국인등록 > 2. 등록사항 변경신고 > 라. 제출서류`
+는 p.45 에서 시작하는데, 뒤이은 서식(p.46~55)에 제목이 없어 조각 5개가 모두 p.55 로 기록됐다.
+
+| | 청크 수 |
+|---|---|
+| 기록 쪽 ≠ 본문 시작 쪽 | 726 / 1,653 (44%) |
+| 그중 3쪽 이상 어긋남 | 287 (부록 `DOC-ANNEX` 는 최대 10쪽) |
+
+### 조치
+
+버퍼에 줄마다 그 줄의 쪽을 함께 담고, 청크(쪼갠 조각 포함)의 `page` 를 **첫 본문 줄의 쪽**으로 기록한다.
+본문 자르는 규칙은 그대로다. 테스트: `tests/test_chunk.py` (구간 시작 쪽, 쪼갠 조각별 시작 쪽. 수정 전 코드에서 둘 다 실패).
+
+### 결과
+
+- 청크 1,653개 그대로. `chunk_id`·`text`·`location` 등 `page` 외 필드는 모두 같고, `page` 만 604개 바뀜.
+  → 평가셋 `chunk_id` 재매핑 불필요.
+- BM25 색인 `idx-v3` 로 재생성 (`chunk_ids.json` 순서·토큰 통계 동일). 벡터는 `location + 본문` 을 임베딩하므로 재생성 불필요.
+- 개발셋 검색 결과 동일: 구성 A Hit@5 8/8 MRR 0.792, 구성 B(w=1.0) 7/8 MRR 0.557.
+- `data/chunks.jsonl` 내용이 바뀌어 `config.index_version` 이 바뀐다 → 이전 캐시 답변은 재사용되지 않는다.
+- 이전 실행 기록(`results/runs/2026-11-25_*`)의 쪽 번호는 수정 전 값이다.
+
+재현:
+
+```bash
+python src/ingest/chunk.py docs/corpus/*.md > data/chunks.jsonl
+python src/build_index.py --chunks data/chunks.jsonl --out data/index --version idx-v3
+```
+
 ## 수정 13 — PDF 글리프(사설영역 문자) 정리 (2026-11-26)
 
 ### 증상
