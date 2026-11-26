@@ -12,7 +12,11 @@ __pycache__/
 data/*
 !data/.gitkeep
 !data/chunks.jsonl
-results/runs/
+# 실행 로그(.jsonl)는 제외하되, 사람이 쓴 분석 기록(.md)은 남긴다.
+# 평가표 5번(실험 기록) 증빙이 쌓여야 한다.
+results/runs/*
+!results/runs/.gitkeep
+!results/runs/*.md
 *.faiss
 *.index
 *.pkl
